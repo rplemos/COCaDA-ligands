@@ -148,7 +148,11 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
 
                             for contact_type, distance_range in categories.items():
 
-                                if contact_type == 'hydrogen_bond' and (abs(residue2.resnum - residue1.resnum) <= 3): # skips alpha-helix for h-bonds
+                                # skips alpha-helix h-bonds, but only within a chain:
+                                # residue numbers in different chains are unrelated
+                                if (contact_type == 'hydrogen_bond'
+                                        and chain1 == chain2
+                                        and abs(residue2.resnum - residue1.resnum) <= 3):
                                     continue
 
                                 if distance_range[0] <= distance <= distance_range[1]: # fits the range

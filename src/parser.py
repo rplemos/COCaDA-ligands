@@ -131,8 +131,8 @@ def parse_pdb(pdb_file):
                                                                 
                 atomname = line[12:16].replace(" ", "")
                 if atomname == "OXT": # OXT is the C-terminal Oxygen atom
-                    current_chain.residues.append(current_residue)
-                    continue
+                    continue # do not append here; the residue is appended at the
+                             # chain transition or at END, as in parse_cif
                 elif atomname.startswith("H"):
                     continue
                 
