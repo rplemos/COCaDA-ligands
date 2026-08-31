@@ -13,10 +13,77 @@ from numpy.linalg import norm
 from copy import deepcopy
 from collections import defaultdict
 
-from src.classes import Contact
+from src.classes import Atom, Contact
 from src.distances import distances
 import src.conditions as conditions
+from src.parser import build_hetero_rings
 import sys
+
+
+def set_anchors(residues, ceiling):
+    """Give every residue a pruning anchor and, for hetero entities, a radius.
+
+    Standard residues keep the existing behaviour exactly: the anchor is
+    atoms[1], the alpha carbon, and pruning uses the mined Ca-Ca distance
+    table. Nothing about amino-acid pairs changes.
+
+    Hetero entities have no alpha carbon and no mined table - and none can be
+    mined for a component that appears in three structures - so they are given
+    a centroid anchor plus the maximum distance from that centroid to any of
+    their atoms. Two entities can then be skipped when
+
+        dist(anchor1, anchor2) > radius1 + radius2 + ceiling
+
+    which is an upper bound rather than an observed maximum: unlike the mined
+    table it cannot discard a pair that really does have atoms in contact.
+    It costs one pass over the atoms of each entity.
+
+    Known limitation - the bound degenerates for elongated entities. A lipid
+    or retinoid has a radius large enough that radius1 + radius2 + ceiling
+    exceeds the Arg-Arg maximum, at which point it prunes nothing. Such
+    entities need splitting or a cell list; see the design record.
+    """
+
+    for residue in residues:
+        if not residue.is_hetero:
+            residue.anchor = residue.atoms[1] if len(residue.atoms) > 1 else None
+            # Reach of the side chain from the alpha carbon. Unused on the
+            # amino-acid path, which prunes with the mined Ca-Ca table, but
+            # required whenever this residue is paired with a hetero entity:
+            # leaving it at zero ignores the side chain entirely, so an
+            # arginine whose NH1 reaches 7 A past its Ca would be pruned away
+            # while genuinely in contact.
+            if residue.anchor is not None:
+                a = residue.anchor
+                residue.radius = max(dist((a.x, a.y, a.z), (o.x, o.y, o.z))
+                                     for o in residue.atoms)
+            else:
+                residue.radius = 0.0
+            # Standard aromatic residues already had their centroid appended as
+            # the final RNG atom during parsing; expose it through the same
+            # list the hetero path uses, so stacking has one code path. This is
+            # exactly the ring that was used before, so results do not move.
+            if residue.ring and residue.normal_vector is not None:
+                residue.rings = [(residue.atoms[-1], residue.normal_vector)]
+            continue
+
+        atoms = residue.atoms
+        if not atoms:
+            residue.anchor = None
+            continue
+
+        count = len(atoms)
+        cx = sum(a.x for a in atoms) / count
+        cy = sum(a.y for a in atoms) / count
+        cz = sum(a.z for a in atoms) / count
+        residue.anchor = Atom("CEN", cx, cy, cz, 1, residue, atoms[0].entity)
+        residue.radius = max(dist((cx, cy, cz), (a.x, a.y, a.z)) for a in atoms)
+
+        # Ring perception is impossible from coordinates alone, so membership
+        # comes from the generated Chemical Component Dictionary table.
+        residue.rings = build_hetero_rings(residue, conditions.ligand_rings)
+        if residue.rings:
+            residue.ring = True
 
 
 def contact_detection(protein, context, uncertainty_flags, local_contact_types):
@@ -53,6 +120,11 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
     else:
         updated_distances = distances
     
+    # Global ceiling on any contact distance, used for the hetero bound and
+    # matching the `distance <= 6` gate in the atom loop below.
+    ceiling = max(hi for _, hi in categories.values())
+    set_anchors(residues, ceiling)
+
     if interface:
         with open(interface,"r") as f:
             for line in f:
@@ -62,9 +134,10 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
         for _, residue2 in enumerate(residues[i+1:], start=i+1):
             chain1, chain2 = residue1.chain.id, residue2.chain.id
 
-            for chain in chains:
-                if chain not in prot_chains:
-                    sys.exit(f"Error: Chain {chain} is not present in the protein.")
+            if chains is not None:
+                for chain in chains:
+                    if chain not in prot_chains:
+                        sys.exit(f"Error: Chain {chain} is not present in the protein.")
 
             if (
                 (residue1.resnum == residue2.resnum and chain1 == chain2)  # same residue
@@ -74,7 +147,21 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
             ):
                 continue
 
-            if len(residue1.atoms) > 1 and len(residue2.atoms) > 1:
+            if residue1.is_hetero or residue2.is_hetero:
+                # Computed bound. The mined Ca-Ca table covers amino-acid pairs
+                # only, and there is no equivalent for a prosthetic group or
+                # ligand, so the cutoff is derived from this file's coordinates.
+                # Single-atom entities (metal ions, chloride) reach this branch
+                # too, which the len(atoms) > 1 test below would have excluded.
+                anchor1, anchor2 = residue1.anchor, residue2.anchor
+                if anchor1 is None or anchor2 is None:
+                    continue
+                anchor_distance = dist((anchor1.x, anchor1.y, anchor1.z),
+                                       (anchor2.x, anchor2.y, anchor2.z))
+                if anchor_distance > residue1.radius + residue2.radius + ceiling:
+                    continue
+
+            elif len(residue1.atoms) > 1 and len(residue2.atoms) > 1:
                 ca1, ca2 = residue1.atoms[1], residue2.atoms[1] # alpha carbons
 
                 distance_ca = dist((ca1.x, ca1.y, ca1.z), (ca2.x, ca2.y, ca2.z))
@@ -93,14 +180,17 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
             pair_key = (chain1, residue1.resnum, chain2, residue2.resnum)
 
             # CHECKING FOR AROMATIC STACKINGS
-            if residue1.ring and residue2.ring:
-                ring1, ring2 = residue1.atoms[-1], residue2.atoms[-1] # RNG atoms
+            # Every ring system of one residue against every ring system of the
+            # other. A standard aromatic residue has exactly one, so amino-acid
+            # pairs behave precisely as before; a component may have several.
+            for ring1, normal1 in residue1.rings:
+              for ring2, normal2 in residue2.rings:
 
                 if interface and ring1.entity == ring2.entity:
                     continue
                                 
                 distance = dist((ring1.x, ring1.y, ring1.z), (ring2.x, ring2.y, ring2.z))
-                angle = calc_angle(residue1.normal_vector, residue2.normal_vector)
+                angle = calc_angle(normal1, normal2)
                 
                 aromatic_range = categories['aromatic']
                 if aromatic_range[0] <= distance <= aromatic_range[1]:
@@ -140,7 +230,14 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
                     name1 = f"{atom1.residue.resname}:{atom1.atomname}" # matches the pattern from conditions dictionary
                     name2 = f"{atom2.residue.resname}:{atom2.atomname}"
 
-                    if name1 in local_contact_types and name2 in local_contact_types: # excludes the RNG atom and any different other
+                    # A metal is recognised by element, so it needs no dictionary
+                    # entry to take part in coordination - a bare Zn2+ or Mg2+
+                    # deposited as a single HETATM would otherwise be skipped
+                    # here and never reach the metal_coordination predicate.
+                    known1 = name1 in local_contact_types or atom1.element in conditions.METALS
+                    known2 = name2 in local_contact_types or atom2.element in conditions.METALS
+
+                    if known1 and known2: # excludes the RNG atom and any different other
 
                         distance = dist((atom1.x, atom1.y, atom1.z), (atom2.x, atom2.y, atom2.z))
                         
@@ -157,15 +254,19 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
 
                                 if distance_range[0] <= distance <= distance_range[1]: # fits the range
 
-                                    def get_props(name, contact_type = contact_type):
+                                    def get_props(name, atom, contact_type = contact_type):
                                         if name in uncertainty_flags and contact_type in ['attractive','repulsive','salt_bridge']:
                                             return resolve_uncertainty(name, uncertainty_flags, local_contact_types)
                                         if contact_type == 'disulfide_bond':
                                             return name
-                                        return local_contact_types[name]
+                                        if contact_type == 'metal_coordination':
+                                            return atom  # defined by element, not by the flag vector
+                                        # an unknown metal has no vector; all-zero means it
+                                        # forms no flag-based contact, only coordination
+                                        return local_contact_types.get(name, [0, 0, 0, 0, 0, 0])
 
-                                    props1 = get_props(name1)
-                                    props2 = get_props(name2)
+                                    props1 = get_props(name1, atom1)
+                                    props2 = get_props(name2, atom2)
 
                                     if not conditions.contact_conditions[contact_type](props1, props2):
                                         continue
@@ -252,7 +353,7 @@ def count_contacts(contacts):
             category = 'aromatic'
         category_counts[category] = category_counts.get(category, 0) + 1
         
-    expected_keys = ['hydrogen_bond', 'hydrophobic', 'attractive', 'repulsive', 'salt_bridge', 'disulfide_bond', 'aromatic', "uncertain_attractive", "uncertain_repulsive", "uncertain_salt_bridge"]
+    expected_keys = ['hydrogen_bond', 'hydrophobic', 'attractive', 'repulsive', 'salt_bridge', 'disulfide_bond', 'aromatic', "uncertain_attractive", "uncertain_repulsive", "uncertain_salt_bridge", 'metal_coordination']
     values = [category_counts.get(key, 0) for key in expected_keys]
 
     return values
@@ -382,6 +483,7 @@ def create_contacts(contacts_by_pair):
         "salt_bridge":["SB",0],
         "disulfide_bond":["DS",0],
         "stacking":["AS",0],
+        "metal_coordination":["MC",0],
     }
     contacts = []
 

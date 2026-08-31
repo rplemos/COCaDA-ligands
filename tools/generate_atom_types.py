@@ -67,8 +67,20 @@ R2  Thioether sulfur.
     amino-acid results. The divergence is deliberate, frozen, and belongs
     in the methods section. See decision D6 in the design record.
 
-Both rules are general and apply to ligands as well as amino acids, so the
-same chemistry is used throughout the output.
+R3  Metal-coordinated donors are not free ions.
+    An atom holding a dative bond to a metal has its Positive and Negative
+    flags cleared. Its charge is engaged in coordinating the metal and is
+    not available to form a salt bridge with a distant residue.
+    Found from real data: the CCD gives heme's NA and NC a formal charge of
+    -1, correctly, since the porphyrin is a dianion. Without this rule those
+    two nitrogens - buried in the macrocycle and bonded to the iron - would
+    emit salt bridges and attractive contacts with any nearby lysine or
+    arginine, which is chemically wrong.
+    No standard amino acid has a metal coordination bond, so this rule
+    cannot affect the validation gate; it applies to ligands only.
+
+All three rules are general and apply to ligands as well as amino acids, so
+the same chemistry is used throughout the output.
 
 
 USAGE
@@ -213,6 +225,15 @@ def type_molecule(mol, factory=None, name_for=None):
         vec[0] = 0   # not hydrophobic
         vec[5] = 1   # acceptor
 
+    for atom in mol_h.GetAtoms():                              # R3
+        if not any(b.GetBondType() == Chem.BondType.DATIVE for b in atom.GetBonds()):
+            continue
+        name = name_for(atom.GetIdx())
+        if name is None or name not in result:
+            continue
+        result[name][2] = 0   # not a free cation
+        result[name][3] = 0   # not a free anion
+
     # Atoms matched by no feature still need an all-zero entry, so that a
     # missing key means "unknown component" rather than "apolar atom".
     for atom in mol.GetAtoms():
@@ -316,6 +337,111 @@ BUILTIN_COMPONENTS = {
 }
 
 
+def stacking_rings(mol, name_of):
+    """Rings of a molecule that can take part in aromatic stacking.
+
+    A ring qualifies when it has five or six atoms and every one of them is
+    aromatic or sp2 - that is, the ring is planar and conjugated, which is what
+    stacking actually requires.
+
+    Why not "all atoms aromatic". Both the CCD and RDKit write heme with only
+    two of its four pyrroles aromatic; rings B and D are Kekulised as
+    pyrrolenines. Filtering on aromaticity therefore yields an asymmetric two
+    of four, which is an artifact of the Kekule structure rather than
+    chemistry. The planar-conjugated test returns all four, symmetrically,
+    with no per-component curation. Verified to reject sp3 rings: cyclohexane,
+    pyrrolidine and T25's epoxide all yield nothing.
+
+    Why individual rings rather than fused systems. Stacking is scored on
+    centroid-to-centroid distance within a 2-5 A window, and the centroid of a
+    large fused system sits too far from its own edges. Measured on 2RCL, the
+    nearest aromatic residue is 7.46 A from heme's whole-plane centroid but
+    5.81 A from the closest pyrrole - a 1.6 A difference that decides whether
+    real stacking is found. This also matches LUNA, whose aromatic SMARTS
+    match individual five- and six-membered rings.
+
+    Note the resulting asymmetry with amino acids: tryptophan keeps its
+    historical treatment as a single fused nine-atom ring, because changing it
+    would move published results. Ligands use per-ring centroids.
+    """
+
+    from rdkit.Chem import HybridizationType
+
+    rings = []
+    for ring in mol.GetRingInfo().AtomRings():
+        if not 5 <= len(ring) <= 6:
+            continue
+        atoms = [mol.GetAtomWithIdx(i) for i in ring]
+        if not all(a.GetIsAromatic() or a.GetHybridization() == HybridizationType.SP2
+                   for a in atoms):
+            continue
+        names = sorted(n for n in (name_of(i) for i in ring) if n)
+        if len(names) == len(ring):
+            rings.append(names)
+    return rings
+
+
+def generate_from_ccd(path, wanted=None, factory=None, verbose=True):
+    """Type components read from the Chemical Component Dictionary.
+
+    Args:
+        path: a components.cif, a single-component .cif, or a directory of them.
+        wanted: component ids to keep, or None for all.
+        factory: an RDKit feature factory.
+        verbose: report per-component repairs and failures.
+
+    Returns:
+        ({comp_id: {atom_name: vector}}, [notes])
+
+    Polymer components are typed as they occur INSIDE A CHAIN: leaving atoms
+    are dropped and the backbone is capped. The CCD stores the free monomer,
+    whose free amine and free carboxylate would otherwise produce donor,
+    acceptor and charge assignments that no residue in a protein actually has.
+    """
+    import ccd as ccd_module
+
+    factory = factory or _load_factory()
+    components = (ccd_module.load_dir(path) if os.path.isdir(path)
+                  else ccd_module.load(path))
+
+    if wanted:
+        missing = sorted(set(wanted) - set(components))
+        if missing:
+            print(f"warning: not present in {path}: {', '.join(missing)}",
+                  file=sys.stderr)
+        components = {k: v for k, v in components.items() if k in set(wanted)}
+
+    table, rings, notes = {}, {}, []
+    for comp_id, component in sorted(components.items()):
+        polymer = component.is_polymer
+        try:
+            mol, names = ccd_module.to_rdkit(
+                component, drop_leaving=polymer, cap_peptide=polymer)
+        except Exception as exc:                              # noqa: BLE001
+            notes.append(f"{comp_id}: could not build molecule ({exc})")
+            continue
+
+        typed = type_molecule(mol, factory, lambda i: names.get(i))
+        heavy = {}
+        for atom in mol.GetAtoms():
+            name = names.get(atom.GetIdx())
+            if name and atom.GetSymbol() != "H":
+                heavy[name] = typed.get(name, [0] * 6)
+        table[comp_id] = heavy
+
+        systems = stacking_rings(mol, lambda i: names.get(i))
+        if systems:
+            rings[comp_id] = systems
+
+        for repair in component.repairs:
+            notes.append(f"{comp_id}: {repair}")
+        if verbose and component.repairs:
+            for repair in component.repairs:
+                print(f"  note  {comp_id}: {repair}", file=sys.stderr)
+
+    return table, rings, notes
+
+
 def generate_components(names, factory=None):
     """Type a set of built-in components. Returns {comp_id: {atom: vector}}."""
     factory = factory or _load_factory()
@@ -342,8 +468,9 @@ def generate_components(names, factory=None):
     return out
 
 
-def write_table(table, path):
+def write_table(table, path, rings=None):
     """Emit a generated table as an importable Python module."""
+    rings = rings or {}
     lines = [
         '"""',
         "Atom property vectors for non-amino-acid components.",
@@ -364,10 +491,34 @@ def write_table(table, path):
             vec = table[comp_id][atom_name]
             lines.append(f"    '{comp_id}:{atom_name}': {vec},")
     lines.append("}")
+
+    lines += [
+        "",
+        "",
+        "# Rings available for aromatic stacking, as lists of atom names.",
+        "#",
+        "# A ring qualifies when it has five or six atoms and all of them are",
+        "# aromatic or sp2 - planar and conjugated. Filtering on aromaticity alone",
+        "# would give heme only two of its four pyrroles, because both the CCD and",
+        "# RDKit Kekulise rings B and D as pyrrolenines.",
+        "#",
+        "# Centroids are per ring, not per fused system: the centroid of a large",
+        "# fused plane sits too far from its own edges for a 2-5 A window.",
+        "ligand_rings = {",
+    ]
+    for comp_id in sorted(rings):
+        lines.append(f"    '{comp_id}': [")
+        for system in rings[comp_id]:
+            lines.append(f"        {system},")
+        lines.append("    ],")
+    lines.append("}")
+
     with open(path, "w") as handle:
         handle.write("\n".join(lines) + "\n")
     print(f"wrote {sum(len(v) for v in table.values())} entries "
-          f"across {len(table)} components to {path}")
+          f"across {len(table)} components to {path}"
+          + (f"; {sum(len(v) for v in rings.values())} aromatic ring system(s) "
+             f"across {len(rings)} component(s)" if rings else ""))
 
 
 def main():
@@ -378,12 +529,19 @@ def main():
                              "against the curated table. Exits non-zero on any "
                              "disagreement. This is the acceptance gate.")
     parser.add_argument("--components", nargs="+", metavar="ID",
-                        help="Component identifiers to type.")
+                        help="Component identifiers to type. With --ccd, selects "
+                             "from the dictionary; without it, uses the small "
+                             "built-in set.")
+    parser.add_argument("--ccd", metavar="PATH",
+                        help="Chemical Component Dictionary source: components.cif, "
+                             "a single-component .cif, or a directory of them. This "
+                             "is the authoritative source of atom names, bond orders "
+                             "and aromatic flags.")
     parser.add_argument("--out", metavar="PATH",
                         help="Write the generated table to this Python file.")
     args = parser.parse_args()
 
-    if not args.validate and not args.components:
+    if not args.validate and not args.components and not args.ccd:
         parser.print_help()
         return 0
 
@@ -391,7 +549,18 @@ def main():
         if validate():
             return 1
 
-    if args.components:
+    if args.ccd:
+        table, rings, notes = generate_from_ccd(args.ccd, args.components)
+        if args.out:
+            write_table(table, args.out, rings)
+        else:
+            for comp_id in sorted(table):
+                print(f"\n{comp_id}")
+                for atom_name in sorted(table[comp_id]):
+                    print(f"   {atom_name:<6} {format_vector(table[comp_id][atom_name])}")
+        if notes:
+            print(f"\n{len(notes)} note(s) recorded during generation", file=sys.stderr)
+    elif args.components:
         table = generate_components(args.components)
         if args.out:
             write_table(table, args.out)

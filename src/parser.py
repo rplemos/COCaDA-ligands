@@ -28,6 +28,36 @@ residue_mapping = {
     'SER': 'S', 'THR': 'T', 'TRP': 'W', 'TYR': 'Y', 'VAL': 'V'
 }
 
+# HETATM component ids that are never treated as contact-forming entities.
+# Water dominates by count - a large structure carries over a thousand copies,
+# so water-water alone would be ~10^6 atom pairs, dwarfing the protein - and
+# its positions are the least reliable part of most models. Water-mediated
+# bridges are a separate feature, not a side effect of admitting HETATM.
+SKIP_HETERO = {'HOH', 'DOD', 'WAT', 'H2O'}
+
+# Modified residues that are deposited as HETATM but are chemically standard
+# amino acids, and are mapped onto their parent so they use the Ca path.
+# MSE (selenomethionine) is by far the most common residue in this class.
+HETERO_AS_STANDARD = {
+    'MSE': 'MET',
+}
+
+
+def element_of(atomname, explicit=None):
+    """Best available element symbol for an atom.
+
+    The explicit element column is preferred wherever the format provides it
+    (PDB columns 77-78, mmCIF `type_symbol`). Falling back to the atom name is
+    ambiguous: in PDB format an alpha carbon is written ' CA ' and a calcium
+    ion 'CA  ', and the parser strips whitespace, so the two become
+    indistinguishable once HETATM records are admitted.
+    """
+
+    if explicit:
+        return explicit.strip().upper()
+    name = atomname.strip()
+    return name[0].upper() if name else ''
+
 
 def parse_pdb(pdb_file):
     """
@@ -87,7 +117,8 @@ def parse_pdb(pdb_file):
                         continue
                     ph = float(ph_str)                
                 
-            elif line.startswith("ATOM"):
+            elif line.startswith("ATOM") or line.startswith("HETATM"):
+                is_hetero_line = line.startswith("HETATM")
                 chain_id = line[21]
                 
                 if entity_chains:
@@ -99,16 +130,22 @@ def parse_pdb(pdb_file):
                 resnum = int(line[22:26])
                 # if resnum <= 0:
                 #     continue
-                resname = line[17:20]
+                resname = line[17:20].strip()
                 
                 # alternative names for protonated histidines
                 if resname in ["HID", "HIE", "HSP", "HSD", "HSE"]: 
                     resname = "HIS"
-                
-                if resname not in residue_mapping:
+
+                # modified residues that are chemically standard amino acids
+                resname = HETERO_AS_STANDARD.get(resname, resname)
+
+                if resname in residue_mapping:
+                    resname = residue_mapping[resname]   # one-letter code
+                    is_hetero = False
+                elif is_hetero_line and resname not in SKIP_HETERO:
+                    is_hetero = True                     # keep the component id
+                else:
                     continue
-                
-                resname = residue_mapping.get(resname)                      
 
                 if current_chain is None or current_chain.id != chain_id:  # new chain
                     if current_residue and len(current_residue.atoms) >= 1: # last residue of previous chain
@@ -120,20 +157,27 @@ def parse_pdb(pdb_file):
 
                 if current_residue is None:  # first residue of the chain
                     atoms = []
-                    current_residue = Residue(resnum, resname, atoms, current_chain, False, None)
+                    current_residue = Residue(resnum, resname, atoms, current_chain, False, None, is_hetero)
                     #current_chain.residues.append(current_residue)
                 
-                if current_residue.resnum != resnum: # new residue
+                # A new residue is detected on resnum OR resname: a ligand and a
+                # protein residue can share a number, and only the name separates them.
+                if current_residue.resnum != resnum or current_residue.resname != resname:
                     if len(current_residue.atoms) >= 1:
                         current_chain.residues.append(current_residue)
                     atoms = []
-                    current_residue = Residue(resnum, resname, atoms, current_chain, False, None)
+                    current_residue = Residue(resnum, resname, atoms, current_chain, False, None, is_hetero)
                                                                 
                 atomname = line[12:16].replace(" ", "")
-                if atomname == "OXT": # OXT is the C-terminal Oxygen atom
-                    continue # do not append here; the residue is appended at the
-                             # chain transition or at END, as in parse_cif
-                elif atomname.startswith("H"):
+                element = element_of(atomname, line[76:78] if len(line) >= 78 else None)
+
+                # OXT terminates a polypeptide, but it is also a legitimate atom
+                # name inside some components (acetate, for one), so the rule is
+                # applied to standard residues only.
+                if atomname == "OXT" and not is_hetero:
+                    continue # the residue is appended at the chain transition
+                             # or at END, as in parse_cif
+                elif element == 'H' or element == 'D':
                     continue
                 
                 x, y, z = float(line[30:38]), float(line[38:46]), float(line[46:54])
@@ -144,7 +188,7 @@ def parse_pdb(pdb_file):
                     prev_occupancy = current_residue.atoms[-1].occupancy
                     if occupancy < prev_occupancy:
                         continue
-                atom = Atom(atomname, x, y, z, occupancy, current_residue, entity) # creates atom
+                atom = Atom(atomname, x, y, z, occupancy, current_residue, entity, element) # creates atom
                 current_residue.atoms.append(atom)
                 # else:
                 #     continue
@@ -167,7 +211,7 @@ def parse_pdb(pdb_file):
                             current_residue.normal_vector = normal_vector
                             
             elif line.startswith("END"):
-                if resname in residue_mapping.values():
+                if current_residue is not None and len(current_residue.atoms) >= 1:
                     current_chain.residues.append(current_residue) # appends the last residue  
                 # Handling cases where there is no ID
                 if current_protein.id is None:
@@ -272,7 +316,7 @@ def parse_cif(cif_file):
                 line = line.split(".")[1]
                 atom_lines.append(line)
                 
-            elif atomsite_block and line.startswith("ATOM"): # maps the order of the columns
+            elif atomsite_block and (line.startswith("ATOM") or line.startswith("HETATM")): # maps the order of the columns
                 atomname_index = atom_lines.index("label_atom_id")
                 resname_index = atom_lines.index("label_comp_id")
                 chain_index = atom_lines.index("label_asym_id")
@@ -294,11 +338,17 @@ def parse_cif(cif_file):
                 atomsite_block = False
                 atominfo_block = True
                 
-            if line.startswith("ATOM") and atominfo_block: # entering ATOM information block
+            if (line.startswith("ATOM") or line.startswith("HETATM")) and atominfo_block:
+                is_hetero_line = line.startswith("HETATM")
                 line = line.split()
                 
-                element = line[atom_element_index]
-                if element not in valid_atoms:
+                # Hydrogens are excluded everywhere; the old N/C/O/S allowlist
+                # is not applied to HETATM records, which is what previously
+                # discarded every metal, phosphorus and halogen in a structure.
+                element = element_of("", line[atom_element_index])
+                if element in ('H', 'D'):
+                    continue
+                if not is_hetero_line and element not in valid_atoms:
                     continue
                 
                 models.append(int(line[model_index]))
@@ -321,10 +371,16 @@ def parse_cif(cif_file):
                 if resname in ["HID", "HIE", "HSP", "HSD", "HSE"]: 
                     resname = "HIS" 
 
-                if resname not in residue_mapping:
+                # modified residues that are chemically standard amino acids
+                resname = HETERO_AS_STANDARD.get(resname, resname)
+
+                if resname in residue_mapping:
+                    resname = residue_mapping[resname]   # one-letter code
+                    is_hetero = False
+                elif is_hetero_line and resname not in SKIP_HETERO:
+                    is_hetero = True                     # keep the component id
+                else:
                     continue
-                
-                resname = residue_mapping[resname]
 
                 if current_chain is None or current_chain.id != chain_id:  # new chain
                     if current_residue and len(current_residue.atoms) >= 1: # last residue of previous chain
@@ -336,17 +392,21 @@ def parse_cif(cif_file):
 
                 if current_residue is None:  # first residue of the chain
                     atoms = []
-                    current_residue = Residue(resnum, resname, atoms, current_chain, False, None)
+                    current_residue = Residue(resnum, resname, atoms, current_chain, False, None, is_hetero)
                     #current_chain.residues.append(current_residue)
                 
-                if current_residue.resnum != resnum: # new residue
+                # A new residue is detected on resnum OR resname: a ligand and a
+                # protein residue can share a number, and only the name separates them.
+                if current_residue.resnum != resnum or current_residue.resname != resname:
                     if len(current_residue.atoms) >= 1:
                         current_chain.residues.append(current_residue) 
                     atoms = []
-                    current_residue = Residue(resnum, resname, atoms, current_chain, False, None)
+                    current_residue = Residue(resnum, resname, atoms, current_chain, False, None, is_hetero)
                                                                 
                 atomname = line[atomname_index]
-                if atomname == "OXT"  or atomname.startswith("H"): # OXT is the C-terminal Oxygen atom
+                # OXT is a legitimate atom name inside some components, so the
+                # terminal-oxygen rule applies to standard residues only.
+                if atomname == "OXT" and not is_hetero:
                     continue
                     
                 x, y, z = float(line[x_index]), float(line[y_index]), float(line[z_index])
@@ -362,7 +422,7 @@ def parse_cif(cif_file):
                     prev_occupancy = current_residue.atoms[-1].occupancy
                     if occupancy < prev_occupancy:
                         continue
-                atom = Atom(atomname, x, y, z, occupancy, current_residue, entity) # creates atom
+                atom = Atom(atomname, x, y, z, occupancy, current_residue, entity, element) # creates atom
                 current_residue.atoms.append(atom)
                 # else:
                 #     continue
@@ -384,7 +444,7 @@ def parse_cif(cif_file):
                             current_residue.normal_vector = normal_vector
 
             elif atominfo_block and line == "#":
-                if resname in residue_mapping.values():
+                if current_residue is not None and len(current_residue.atoms) >= 1:
                     current_chain.residues.append(current_residue) # appends the last residue
                 atominfo_block = False
     
@@ -397,6 +457,45 @@ def parse_cif(cif_file):
         ph = 7.4
             
     return current_protein, ph
+
+
+def build_hetero_rings(residue, ring_table):
+    """Centroid and plane normal for each aromatic ring system of a component.
+
+    Ring membership comes from the generated table, which derives it from the
+    Chemical Component Dictionary - structure files carry no connectivity, so
+    ring perception is impossible at runtime. Fused rings were already merged
+    when the table was generated, so each entry here is one plane.
+
+    Returns a list of (centroid Atom, normal vector). Incomplete rings are
+    skipped: a partially resolved ligand has no meaningful plane.
+    """
+
+    systems = ring_table.get(residue.resname)
+    if not systems:
+        return []
+
+    by_name = {atom.atomname: atom for atom in residue.atoms}
+    built = []
+
+    for index, atom_names in enumerate(systems, start=1):
+        present = [by_name[n] for n in atom_names if n in by_name]
+        if len(present) < len(atom_names):
+            continue                      # incomplete ring, no reliable plane
+        if any(atom.occupancy != 1 for atom in present):
+            continue                      # alternate conformations, as for residues
+
+        coords = array([[a.x, a.y, a.z] for a in present])
+        if not coords.any():
+            continue
+
+        label = "RNG" if len(systems) == 1 else f"RNG{index}"
+        centre = mean(coords, axis=0)
+        centre_atom = Atom(label, centre[0], centre[1], centre[2], 1, residue,
+                           present[0].entity, "R")
+        built.append((centre_atom, calc_normal_vector(coords)))
+
+    return built
 
 
 def centroid(residue, ring_atoms, entity):

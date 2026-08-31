@@ -264,7 +264,8 @@ def validate_distances(value):
         'repulsive',
         'attractive',
         'disulfide_bond',
-        'aromatic'
+        'aromatic',
+        'metal_coordination'
     ]
     
     loaded_distances = {}
@@ -288,18 +289,26 @@ def validate_distances(value):
             raise ArgumentTypeError(f"Error loading JSON file: {e}")
     elif isinstance(value, list):  # User passed 14 comma-separated values
         parts = value[0].split(',')
-        try:
-            if len(parts) != 14:
-                raise ArgumentTypeError(f"Expected 14 comma-separated values for distances, got {len(parts)}.")
-        except Exception as e:
-            raise ArgumentTypeError(f"Error processing distance values: {e}")
+        # 16 values covers all eight contact types. 14 is still accepted for
+        # backward compatibility with the published command line, and leaves
+        # metal coordination at its default range.
+        if len(parts) not in (14, 16):
+            raise ArgumentTypeError(
+                f"Expected 16 comma-separated values for distances "
+                f"(or 14, omitting metal_coordination), got {len(parts)}.")
         try:
             floats = [float(x) for x in parts]
         except ValueError:
             raise ArgumentTypeError(f"All distance values must be numeric floats. Got: {parts}")
         
+        from src.conditions import categories as default_categories
         for i, key in enumerate(distance_keys):
             start = i*2
+            if start + 1 >= len(floats):
+                # 14-value form: carry the default through rather than dropping
+                # the type, which would silently disable it.
+                loaded_distances[key] = list(default_categories[key])
+                continue
             loaded_distances[key] = [floats[start], floats[start + 1]]
         modified_values = True
     else:

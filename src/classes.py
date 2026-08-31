@@ -131,7 +131,7 @@ class Residue:
         normal_vector (tuple): The normal vector associated with the residue.
     """
     
-    def __init__(self, resnum, resname, atoms, chain, ring, normal_vector):
+    def __init__(self, resnum, resname, atoms, chain, ring, normal_vector, is_hetero=False):
         """
         Initializes a new Residue instance.
         """
@@ -142,6 +142,26 @@ class Residue:
         self.chain = chain
         self.ring = ring
         self.normal_vector = normal_vector
+
+        # Non-amino-acid entities: prosthetic groups, cofactors, ligands, ions.
+        # These carry a 3-to-5 character component id as resname (e.g. 'HEM')
+        # rather than the one-letter code used for standard residues.
+        self.is_hetero = is_hetero
+
+        # Aromatic ring systems available for stacking, as a list of
+        # (centroid Atom, normal vector) pairs. A standard aromatic residue has
+        # exactly one, which keeps its behaviour identical to before. Hetero
+        # components can have several - NAD has two - and a fused set counts as
+        # one plane, so heme is a single 20-atom porphyrin rather than four
+        # pyrroles. Populated by contacts.set_anchors().
+        self.rings = []
+
+        # Pruning anchor. Standard residues use their alpha carbon and the
+        # mined Ca-Ca distance table; hetero entities have no Ca, so they use
+        # their centroid together with a bounding radius computed from the
+        # coordinates in the file. Both are set by contacts.set_anchors().
+        self.anchor = None
+        self.radius = 0.0
   
       
 class Atom:
@@ -158,12 +178,18 @@ class Atom:
         entity (int): The entity in which the atom is located.
     """
     
-    def __init__(self, atomname, x, y, z, occupancy, residue, entity):
+    def __init__(self, atomname, x, y, z, occupancy, residue, entity, element=None):
         """
         Initializes a new Atom instance.
         """
         
         self.atomname = atomname
+        # Element symbol, taken from the file's own element column where the
+        # format provides one (PDB columns 77-78, mmCIF `type_symbol`).
+        # Required for metal coordination, which is defined by element rather
+        # than by the property vector, and the only reliable way to tell a
+        # calcium ion ('CA  ') from an alpha carbon (' CA ') in PDB format.
+        self.element = (element or (atomname[:1] if atomname else '')).strip().upper()
         self.x = x
         self.y = y
         self.z = z
@@ -236,7 +262,8 @@ class Contact:
             "stacking-perpendicular":"AS", # need to reimplement later
             "uncertain_attractive": "uAT",
             "uncertain_repulsive": "uRE",
-            "uncertain_salt_bridge": "uSB"
+            "uncertain_salt_bridge": "uSB",
+            "metal_coordination": "MC"
         }
         
         all_values = list(self.__dict__.values())
