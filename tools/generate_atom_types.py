@@ -367,8 +367,15 @@ def stacking_rings(mol, name_of):
 
     from rdkit.Chem import HybridizationType
 
+    try:
+        atom_rings = mol.GetRingInfo().AtomRings()
+    except Exception:                                         # noqa: BLE001
+        from rdkit import Chem as _Chem
+        _Chem.FastFindRings(mol)
+        atom_rings = mol.GetRingInfo().AtomRings()
+
     rings = []
-    for ring in mol.GetRingInfo().AtomRings():
+    for ring in atom_rings:
         if not 5 <= len(ring) <= 6:
             continue
         atoms = [mol.GetAtomWithIdx(i) for i in ring]
@@ -381,7 +388,8 @@ def stacking_rings(mol, name_of):
     return rings
 
 
-def generate_from_ccd(path, wanted=None, factory=None, verbose=True):
+def generate_from_ccd(path, wanted=None, factory=None, verbose=True,
+                      start=0, limit=None):
     """Type components read from the Chemical Component Dictionary.
 
     Args:
@@ -401,18 +409,28 @@ def generate_from_ccd(path, wanted=None, factory=None, verbose=True):
     import ccd as ccd_module
 
     factory = factory or _load_factory()
-    components = (ccd_module.load_dir(path) if os.path.isdir(path)
-                  else ccd_module.load(path))
 
-    if wanted:
-        missing = sorted(set(wanted) - set(components))
-        if missing:
-            print(f"warning: not present in {path}: {', '.join(missing)}",
-                  file=sys.stderr)
-        components = {k: v for k, v in components.items() if k in set(wanted)}
+    if os.path.isdir(path):
+        source = sorted(ccd_module.load_dir(path).items())
+    elif os.path.getsize(path) > 50 * 1024 * 1024:
+        # The full components.cif is streamed: half a gigabyte, ~51 000 entries.
+        source = ((c.id, c) for c in ccd_module.iter_components(path))
+    else:
+        source = sorted(ccd_module.load(path).items())
+
+    keep = set(wanted) if wanted else None
 
     table, rings, notes = {}, {}, []
-    for comp_id, component in sorted(components.items()):
+    done = 0
+    seen = 0
+    for comp_id, component in source:
+        if keep is not None and comp_id not in keep:
+            continue
+        seen += 1
+        if seen <= start:
+            continue
+        if limit is not None and done >= limit:
+            break
         polymer = component.is_polymer
         try:
             mol, names = ccd_module.to_rdkit(
@@ -421,7 +439,12 @@ def generate_from_ccd(path, wanted=None, factory=None, verbose=True):
             notes.append(f"{comp_id}: could not build molecule ({exc})")
             continue
 
-        typed = type_molecule(mol, factory, lambda i: names.get(i))
+        try:
+            typed = type_molecule(mol, factory, lambda i: names.get(i))
+        except Exception as exc:                              # noqa: BLE001
+            notes.append(f"{comp_id}: typing failed ({exc})")
+            continue
+
         heavy = {}
         for atom in mol.GetAtoms():
             name = names.get(atom.GetIdx())
@@ -429,9 +452,17 @@ def generate_from_ccd(path, wanted=None, factory=None, verbose=True):
                 heavy[name] = typed.get(name, [0] * 6)
         table[comp_id] = heavy
 
-        systems = stacking_rings(mol, lambda i: names.get(i))
+        try:
+            systems = stacking_rings(mol, lambda i: names.get(i))
+        except Exception as exc:                              # noqa: BLE001
+            notes.append(f"{comp_id}: ring perception failed ({exc})")
+            systems = []
         if systems:
             rings[comp_id] = systems
+
+        done += 1
+        if verbose and done % 5000 == 0:
+            print(f"  ... {done:,} components typed", file=sys.stderr, flush=True)
 
         for repair in component.repairs:
             notes.append(f"{comp_id}: {repair}")
@@ -466,6 +497,40 @@ def generate_components(names, factory=None):
                 sym if mol.GetNumAtoms() == 1 else f"{sym}{counts[sym]}")
         out[comp_id] = type_molecule(mol, factory, lambda i: names_by_idx.get(i))
     return out
+
+
+def write_dat(table, rings, path):
+    """Emit the compact, gzipped, line-per-component data file.
+
+    A Python dict literal is not an option at CCD scale: 51 000 components and
+    1.33 million heavy atoms would be a ~50 MB source file re-parsed by every
+    worker process at import. This format is read lazily by src/ligand_data.py,
+    which loads only the components present in the structure being processed.
+
+    See that module for the format description.
+    """
+
+    import gzip
+    sys.path.insert(0, os.path.join(HERE, os.pardir, "src"))
+    from ligand_data import pack
+
+    written = 0
+    with gzip.open(path, "wt", compresslevel=9) as handle:
+        for comp_id in sorted(table):
+            atoms = table[comp_id]
+            if not atoms:
+                continue
+            packed = ",".join(f"{name}={pack(atoms[name])}"
+                              for name in sorted(atoms))
+            systems = ";".join("|".join(ring) for ring in rings.get(comp_id, []))
+            handle.write(f"{comp_id}\t{packed}\t{systems}\n")
+            written += 1
+
+    size = os.path.getsize(path) / (1024 * 1024)
+    print(f"wrote {written:,} components, "
+          f"{sum(len(v) for v in table.values()):,} atom entries, "
+          f"{sum(len(v) for v in rings.values()):,} ring systems "
+          f"-> {path} ({size:.1f} MB gzipped)")
 
 
 def write_table(table, path, rings=None):
@@ -537,6 +602,11 @@ def main():
                              "a single-component .cif, or a directory of them. This "
                              "is the authoritative source of atom names, bond orders "
                              "and aromatic flags.")
+    parser.add_argument("--start", type=int, default=0, metavar="N",
+                        help="Skip the first N components. With --limit, lets the "
+                             "full dictionary be generated in chunks.")
+    parser.add_argument("--limit", type=int, default=None, metavar="N",
+                        help="Stop after N components.")
     parser.add_argument("--out", metavar="PATH",
                         help="Write the generated table to this Python file.")
     args = parser.parse_args()
@@ -550,9 +620,13 @@ def main():
             return 1
 
     if args.ccd:
-        table, rings, notes = generate_from_ccd(args.ccd, args.components)
+        table, rings, notes = generate_from_ccd(args.ccd, args.components,
+                                                start=args.start, limit=args.limit)
         if args.out:
-            write_table(table, args.out, rings)
+            if args.out.endswith(".gz"):
+                write_dat(table, rings, args.out)
+            else:
+                write_table(table, args.out, rings)
         else:
             for comp_id in sorted(table):
                 print(f"\n{comp_id}")

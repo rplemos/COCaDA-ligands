@@ -202,8 +202,50 @@ def parse(text):
     return components
 
 
+def iter_components(path):
+    """Yield Components one at a time from a CCD file.
+
+    The full `components.cif` is over half a gigabyte and holds ~51 000
+    entries, so it is streamed a data block at a time rather than read into
+    memory. Only one component is materialised at once.
+    """
+
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"CCD file not found: {path}")
+
+    def build(comp_id, buffer):
+        categories, scalars = _parse_block(buffer)
+        atoms = categories.get("_chem_comp_atom", [])
+        if atoms:
+            return Component(comp_id, atoms,
+                             categories.get("_chem_comp_bond", []), scalars)
+        return None
+
+    current_id, buffer = None, []
+    with open(path, errors="replace") as handle:
+        for line in handle:
+            if line.startswith("data_"):
+                if current_id is not None:
+                    component = build(current_id, buffer)
+                    if component is not None:
+                        yield component
+                current_id = line[len("data_"):].strip()
+                buffer = []
+            else:
+                buffer.append(line.rstrip("\n"))
+
+    if current_id is not None:
+        component = build(current_id, buffer)
+        if component is not None:
+            yield component
+
+
 def load(path):
-    """Parse a CCD file from disk."""
+    """Parse a CCD file from disk into {comp_id: Component}.
+
+    Convenient for single-component files. Use `iter_components` for the full
+    dictionary, which is far too large to hold at once.
+    """
     if not os.path.exists(path):
         raise FileNotFoundError(f"CCD file not found: {path}")
     with open(path, errors="replace") as handle:
@@ -334,6 +376,15 @@ def to_rdkit(component, drop_leaving=False, cap_peptide=False):
             ^ Chem.SanitizeFlags.SANITIZE_KEKULIZE
             ^ Chem.SanitizeFlags.SANITIZE_SETAROMATICITY,
             catchErrors=True)
+
+    # A partially sanitised molecule can be left with uninitialised ring info,
+    # and GetRingInfo() then trips a C++ assertion that takes the whole process
+    # down rather than raising. FastFindRings initialises it without requiring
+    # a full sanitisation, which matters when walking all ~51 000 components.
+    try:
+        final.GetRingInfo().NumRings()
+    except Exception:                                         # noqa: BLE001
+        Chem.FastFindRings(final)
 
     names = {a.GetIdx(): (a.GetProp("atom_name") if a.HasProp("atom_name") else None)
              for a in final.GetAtoms()}

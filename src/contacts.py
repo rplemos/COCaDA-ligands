@@ -17,10 +17,11 @@ from src.classes import Atom, Contact
 from src.distances import distances
 import src.conditions as conditions
 from src.parser import build_hetero_rings
+import src.ligand_data as ligand_data
 import sys
 
 
-def set_anchors(residues, ceiling):
+def set_anchors(residues, ceiling, ring_table=None):
     """Give every residue a pruning anchor and, for hetero entities, a radius.
 
     Standard residues keep the existing behaviour exactly: the anchor is
@@ -81,7 +82,7 @@ def set_anchors(residues, ceiling):
 
         # Ring perception is impossible from coordinates alone, so membership
         # comes from the generated Chemical Component Dictionary table.
-        residue.rings = build_hetero_rings(residue, conditions.ligand_rings)
+        residue.rings = build_hetero_rings(residue, ring_table or {})
         if residue.rings:
             residue.ring = True
 
@@ -123,7 +124,16 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
     # Global ceiling on any contact distance, used for the hetero bound and
     # matching the `distance <= 6` gate in the atom loop below.
     ceiling = max(hi for _, hi in categories.values())
-    set_anchors(residues, ceiling)
+
+    # Load property vectors and ring definitions for the non-amino-acid
+    # components actually present, and nothing else. Typically one to ten
+    # entries out of the ~51 000 in the Chemical Component Dictionary.
+    hetero_ids = {r.resname for r in residues if r.is_hetero}
+    hetero_types, hetero_rings = ligand_data.load_for(hetero_ids)
+    if hetero_types:
+        local_contact_types.update(hetero_types)
+
+    set_anchors(residues, ceiling, hetero_rings)
 
     if interface:
         with open(interface,"r") as f:
