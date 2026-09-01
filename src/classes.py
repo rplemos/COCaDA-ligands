@@ -198,6 +198,21 @@ class Atom:
         self.entity = entity
 
 
+#: Single-character CCD component identifiers are indistinguishable from the
+#: one-letter codes COCaDA writes for standard residues: `K` is both potassium
+#: and lysine, `F` both fluoride and phenylalanine, `W` both tungsten and
+#: tryptophan, and `A`, `C`, `G`, `U` are both ribonucleotides and amino acids.
+#: Nineteen such components exist in the Chemical Component Dictionary. In the
+#: output they are written in LOWER CASE, so `k` is the ion and `K` the lysine.
+#: Longer identifiers cannot collide and are left exactly as deposited: HEM is
+#: HEM. The transformation is applied at output only - the component's real
+#: identifier is what the property table is keyed on and what every internal
+#: lookup uses.
+def display_resname(resname, is_hetero):
+    """The residue name as it should appear in output."""
+    return resname.lower() if is_hetero and len(resname) == 1 else resname
+
+
 class Contact: 
     """
     Represents a contact between two atoms in different residues.
@@ -241,7 +256,37 @@ class Contact:
         self.atom_object1 = atom_object1
         self.atom_object2 = atom_object2
         self.is_uncertain = is_uncertain
-    
+
+    @staticmethod
+    def _is_hetero(atom):
+        """Whether an atom belongs to a non-amino-acid component.
+
+        Read from the parsed structure rather than guessed from the residue
+        name, which cannot be trusted: a one-character component identifier
+        looks exactly like an amino-acid code.
+        """
+        residue = getattr(atom, "residue", None)
+        return bool(getattr(residue, "is_hetero", False))
+
+    @property
+    def hetero1(self):
+        return self._is_hetero(self.atom_object1)
+
+    @property
+    def hetero2(self):
+        return self._is_hetero(self.atom_object2)
+
+    @property
+    def is_amino_pair(self):
+        """True when both partners are standard amino acids.
+
+        This is the `AA-AA` column of the output. It is the reliable way to
+        tell a contact of the protein with itself from one involving a
+        prosthetic group, cofactor, ion or ligand - reliable in a way reading
+        the residue names is not.
+        """
+        return not (self.hetero1 or self.hetero2)
+
     def print_text(self):
         """
         Generates a formatted string describing the contact between two atoms.
@@ -266,10 +311,20 @@ class Contact:
             "metal_coordination": "MC"
         }
         
-        all_values = list(self.__dict__.values())
-        all_values[11] = map_type[all_values[11]]
-        return f"{all_values[1]},{all_values[2]},{all_values[3]},{all_values[4]},{all_values[6]},{all_values[7]},{all_values[8]},{all_values[9]},{all_values[10]},{all_values[11]}"
-    
+        # Named attributes, deliberately. This used to read self.__dict__ by
+        # position - all_values[11] was the type - so adding any field to
+        # Contact silently shifted every column of the CSV.
+        return ",".join(str(field) for field in (
+            self.chain1, self.residue_num1,
+            display_resname(self.residue_name1, self.hetero1), self.atom1,
+            self.chain2, self.residue_num2,
+            display_resname(self.residue_name2, self.hetero2), self.atom2,
+            self.distance, map_type[self.type],
+            "y" if self.is_amino_pair else "n",
+        ))
+
         # verbose
-        # return f"{all_values[1]}-{all_values[2]}{all_values[3]}:{all_values[4]} and {all_values[6]}-{all_values[7]}{all_values[8]}:{all_values[9]}: {all_values[10]} A. {all_values[11].capitalize()}"
+        # return (f"{self.chain1}-{self.residue_num1}{self.residue_name1}:{self.atom1} and "
+        #         f"{self.chain2}-{self.residue_num2}{self.residue_name2}:{self.atom2}: "
+        #         f"{self.distance} A. {self.type.capitalize()}")
 

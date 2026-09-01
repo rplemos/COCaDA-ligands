@@ -349,7 +349,7 @@ def show_contacts(contacts):
     
     output = []
     
-    output.append("Chain1,Res1,ResName1,Atom1,Chain2,Res2,ResName2,Atom2,Distance,Type")
+    output.append("Chain1,Res1,ResName1,Atom1,Chain2,Res2,ResName2,Atom2,Distance,Type,AA-AA")
     for contact in contacts:
         output.append(contact.print_text())
         

@@ -170,7 +170,15 @@ def process_result(result, context):
         output, silent, web = context.output, context.silent, context.web
         ph = ph if context.ph is None else context.ph
         
-        output_data = f"ID: {protein.id} | Size: {protein.true_count():<7} | Contacts: {len(contacts_list):<7} | pH: {ph:.2f} | Time: {process_time:.3f}s"
+        # Contacts involving a prosthetic group, cofactor, ion or ligand are
+        # reported alongside the total: a run whose ligand count is zero on a
+        # structure that has ligands is the visible symptom of a component
+        # missing from the property table.
+        ligand_count = sum(1 for contact in contacts_list if not contact.is_amino_pair)
+        totals = f"{len(contacts_list)} (ligand: {ligand_count})"
+        output_data = (f"ID: {protein.id} | Size: {protein.true_count():<7} "
+                       f"| Contacts: {totals:<20} | pH: {ph:.2f} "
+                       f"| Time: {process_time:.3f}s")
         count = '; '.join(f"{v[0]}: {v[1]:>5}" for v in count_types.values())
         log(output_data)
         log(f"{count}\n", silent)
