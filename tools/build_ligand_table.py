@@ -69,6 +69,10 @@ def main():
                         help=f"Output table. Default: {DEFAULT_OUT}")
     parser.add_argument("--restart", action="store_true",
                         help="Discard any partial run and start over.")
+    parser.add_argument("--extend", action="store_true",
+                        help="Add only components missing from an existing table, "
+                             "keeping everything already there. Use after a CCD "
+                             "update, or after a reader fix widens coverage.")
     parser.add_argument("--every", type=int, default=1000, metavar="N",
                         help="Progress interval. Default 1000.")
     args = parser.parse_args()
@@ -90,6 +94,12 @@ def main():
         for path in (partial, logfile):
             if os.path.exists(path):
                 os.remove(path)
+
+    if args.extend and os.path.exists(args.out) and not os.path.exists(partial):
+        print(f"extending {os.path.basename(args.out)}: "
+              f"seeding the working file from it")
+        with gzip.open(args.out, "rb") as gz, open(partial, "wb") as raw:
+            shutil.copyfileobj(gz, raw)
 
     done, size = existing_ids(partial)
     if done:

@@ -132,6 +132,20 @@ def _parse_block(lines):
 
         index += 1
 
+    # mmCIF only uses loop_ when a category has two or more rows. A component
+    # with a single atom - every monatomic ion: ZN, MG, CA, NA, K, CL, FE - or
+    # a single bond writes those items as plain scalars instead. Without this,
+    # the entire monatomic-ion vocabulary is silently invisible, which is a
+    # large hole given how common ions are in deposited structures.
+    for category in ("_chem_comp_atom", "_chem_comp_bond"):
+        if category in categories:
+            continue
+        prefix = category + "."
+        row = {key[len(prefix):]: value
+               for key, value in scalars.items() if key.startswith(prefix)}
+        if row:
+            categories[category] = [row]
+
     return categories, scalars
 
 

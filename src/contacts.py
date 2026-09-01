@@ -271,6 +271,14 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
                                             return name
                                         if contact_type == 'metal_coordination':
                                             return atom  # defined by element, not by the flag vector
+                                        # A metal's charge is expressed as coordination, not as an
+                                        # ion pair. The CCD gives Zn2+ a +2 formal charge, so without
+                                        # this a zinc 2.5 A from an aspartate reports BOTH a salt
+                                        # bridge and a metal coordination for one interaction.
+                                        # Suppressing the electrostatic types leaves MC to carry it.
+                                        if (contact_type in ('attractive', 'repulsive', 'salt_bridge')
+                                                and atom.element in conditions.METALS):
+                                            return [0, 0, 0, 0, 0, 0]
                                         # an unknown metal has no vector; all-zero means it
                                         # forms no flag-based contact, only coordination
                                         return local_contact_types.get(name, [0, 0, 0, 0, 0, 0])
