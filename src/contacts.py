@@ -140,7 +140,11 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
             for line in f:
                 interface_res.append(line.strip())
         
-    for i, residue1 in enumerate(residues[1:]):
+    # D1: the outer loop used to iterate over residues[1:] while the inner
+    # loop started at i+1, so residues[0] appeared on neither side and the
+    # first residue in parse order was never compared with anything. Iterating
+    # over the full list yields exactly itertools.combinations(residues, 2).
+    for i, residue1 in enumerate(residues):
         for _, residue2 in enumerate(residues[i+1:], start=i+1):
             chain1, chain2 = residue1.chain.id, residue2.chain.id
 
