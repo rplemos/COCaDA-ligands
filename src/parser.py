@@ -183,13 +183,28 @@ def parse_pdb(pdb_file):
                 x, y, z = float(line[30:38]), float(line[38:46]), float(line[46:54])
                 occupancy = float(line[55:60])
                 
-                # if (occupancy == 0 or occupancy >= 0.5): # ignores low quality atoms
-                if current_residue.atoms and current_residue.atoms[-1].atomname == atomname: # same atom, different occupancies
-                    prev_occupancy = current_residue.atoms[-1].occupancy
-                    if occupancy < prev_occupancy:
-                        continue
                 atom = Atom(atomname, x, y, z, occupancy, current_residue, entity, element) # creates atom
-                current_residue.atoms.append(atom)
+
+                # Alternate conformations: keep exactly ONE copy of each atom
+                # name - the highest occupancy, and the first one on a tie.
+                #
+                # The previous test compared only against atoms[-1] and skipped
+                # only when the new occupancy was STRICTLY lower, so a residue
+                # modelled at 0.50/0.50 - very common in X-ray structures - kept
+                # both conformers and every one of its contacts was reported
+                # twice. Comparing against the whole residue also catches altloc
+                # records that are not adjacent in the file.
+                #
+                # The winner is written back in place rather than appended, so
+                # atom ordering is preserved; contacts.py relies on atoms[1]
+                # being the alpha carbon.
+                for index, existing in enumerate(current_residue.atoms):
+                    if existing.atomname == atomname:
+                        if occupancy > existing.occupancy:
+                            current_residue.atoms[index] = atom
+                        break
+                else:
+                    current_residue.atoms.append(atom)
                 # else:
                 #     continue
 
@@ -354,6 +369,14 @@ def parse_cif(cif_file):
                 models.append(int(line[model_index]))
                 curr_model = int(line[model_index])
                 if curr_model != models[0]: # parses only the first model (NMR files)
+                    # Flush the residue in progress before leaving. Without this
+                    # the last entity of model 1 is discarded, because nothing
+                    # after it ever triggers a residue boundary. In 1t18 that
+                    # silently dropped HC4, the chromophore - the only ligand in
+                    # the structure.
+                    if current_residue is not None and len(current_residue.atoms) >= 1:
+                        current_chain.residues.append(current_residue)
+                        current_residue = None
                     break
                     #return current_protein
                 
@@ -417,13 +440,28 @@ def parse_cif(cif_file):
                 else:
                     entity = line[entity_index]
                     
-                # if (occupancy == 0 or occupancy >= 0.5): # ignores low quality atoms
-                if current_residue.atoms and current_residue.atoms[-1].atomname == atomname: # same atom, different occupancies
-                    prev_occupancy = current_residue.atoms[-1].occupancy
-                    if occupancy < prev_occupancy:
-                        continue
                 atom = Atom(atomname, x, y, z, occupancy, current_residue, entity, element) # creates atom
-                current_residue.atoms.append(atom)
+
+                # Alternate conformations: keep exactly ONE copy of each atom
+                # name - the highest occupancy, and the first one on a tie.
+                #
+                # The previous test compared only against atoms[-1] and skipped
+                # only when the new occupancy was STRICTLY lower, so a residue
+                # modelled at 0.50/0.50 - very common in X-ray structures - kept
+                # both conformers and every one of its contacts was reported
+                # twice. Comparing against the whole residue also catches altloc
+                # records that are not adjacent in the file.
+                #
+                # The winner is written back in place rather than appended, so
+                # atom ordering is preserved; contacts.py relies on atoms[1]
+                # being the alpha carbon.
+                for index, existing in enumerate(current_residue.atoms):
+                    if existing.atomname == atomname:
+                        if occupancy > existing.occupancy:
+                            current_residue.atoms[index] = atom
+                        break
+                else:
+                    current_residue.atoms.append(atom)
                 # else:
                 #     continue
                                 
