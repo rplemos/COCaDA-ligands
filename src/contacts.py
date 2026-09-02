@@ -16,7 +16,7 @@ from collections import defaultdict
 from src.classes import Atom, Contact
 from src.distances import distances
 import src.conditions as conditions
-from src.parser import build_hetero_rings
+from src.parser import build_hetero_rings, WATERS
 import src.ligand_data as ligand_data
 import sys
 
@@ -301,6 +301,14 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
                                         # Suppressing the electrostatic types leaves MC to carry it.
                                         if (contact_type in ('attractive', 'repulsive', 'salt_bridge')
                                                 and atom.element in conditions.METALS):
+                                            return [0, 0, 0, 0, 0, 0]
+                                        # A water is admitted only when it
+                                        # coordinates a metal, and then it is a
+                                        # ligand of that centre and nothing
+                                        # else: all-zero leaves coordination as
+                                        # the only contact it can form, never a
+                                        # hydrogen bond to the protein.
+                                        if atom.residue.resname in WATERS:
                                             return [0, 0, 0, 0, 0, 0]
                                         # an unknown metal has no vector; all-zero means it
                                         # forms no flag-based contact, only coordination

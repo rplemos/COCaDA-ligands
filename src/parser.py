@@ -35,6 +35,22 @@ residue_mapping = {
 # bridges are a separate feature, not a side effect of admitting HETATM.
 SKIP_HETERO = {'HOH', 'DOD', 'WAT', 'H2O'}
 
+# ... with one exception. A water that COORDINATES A METAL is not incidental
+# solvent, it is a ligand of the metal centre: the sixth coordination position
+# of a resting-state cytochrome P450 is an aqua ligand, and PDB 1TQN models it
+# 2.07 A from the heme iron. Excluding water dropped that bond entirely.
+#
+# Such waters are admitted, and ONLY they: a water is kept when it lies within
+# the metal-coordination window of a metal atom, which is one distance test per
+# water and nothing at all in a structure with no metals. They carry an
+# all-zero property vector, exactly as metals do, so the only contact they can
+# form is the coordination itself - never a hydrogen bond, never a hydrophobic
+# contact. Water-mediated bridges remain a separate feature.
+#
+# 33 of 84 metal atoms in the validation benchmark (39%) have a water within
+# the window: 12 of 12 magnesium, 8 of 10 copper, 2 of 16 iron.
+WATERS = {'HOH', 'DOD', 'WAT', 'H2O'}
+
 # Modified residues that are deposited as HETATM but are chemically standard
 # amino acids, and are mapped onto their parent so they use the Ca path.
 # MSE (selenomethionine) is by far the most common residue in this class.
@@ -81,6 +97,7 @@ def parse_pdb(pdb_file):
     current_entity = None
     entity_chains = {}
     entity = None
+    waters = []              # held aside; see WATERS
     ph = 7.4
     ph_pattern = re.compile(r'\bPH\b\s*[:\s]\s*([-+]?\d*\.\d+|\d+)')
 
@@ -149,6 +166,17 @@ def parse_pdb(pdb_file):
                 elif is_hetero_line and resname not in SKIP_HETERO:
                     is_hetero = True                     # keep the component id
                 else:
+                    if is_hetero_line and resname in WATERS:
+                        atomname = line[12:16].replace(" ", "")
+                        element = element_of(atomname,
+                                             line[76:78] if len(line) >= 78 else None)
+                        if element not in ('H', 'D'):
+                            # Held aside, not admitted: only the ones that turn
+                            # out to coordinate a metal are kept. See WATERS.
+                            waters.append((chain_id, resnum, icode, resname, atomname,
+                                           float(line[30:38]), float(line[38:46]),
+                                           float(line[46:54]), float(line[55:60]),
+                                           entity, element, line[16:17].strip()))
                     continue
 
                 if current_chain is None or current_chain.id != chain_id:  # new chain
@@ -246,6 +274,7 @@ def parse_pdb(pdb_file):
                     id = id.split(".")[0]
                     current_protein.id = id  
     
+    admit_coordinating_waters(current_protein, waters)
     return label_alternates(current_protein), ph
 
 
@@ -270,6 +299,7 @@ def parse_cif(cif_file):
     current_protein = Protein()
     current_chain = None
     current_residue = None
+    waters = []            # held aside; see WATERS
     atomsite_block = False # _atom_site. lines
     atominfo_block = False # ATOM        lines
     atom_lines = []
@@ -427,6 +457,16 @@ def parse_cif(cif_file):
                 elif is_hetero_line and resname not in SKIP_HETERO:
                     is_hetero = True                     # keep the component id
                 else:
+                    if is_hetero_line and resname in WATERS:
+                        # Held aside, not admitted: see WATERS.
+                        alt = "" if altloc_index is None else line[altloc_index]
+                        waters.append((chain_id, resnum, icode, resname,
+                                       line[atomname_index],
+                                       float(line[x_index]), float(line[y_index]),
+                                       float(line[z_index]),
+                                       float(line[occupancy_index]),
+                                       line[entity_index] if line[entity_index] != "." else chain_id,
+                                       element, alt))
                     continue
 
                 if current_chain is None or current_chain.id != chain_id:  # new chain
@@ -527,6 +567,7 @@ def parse_cif(cif_file):
     if ph == 0 or ph > 14:
         ph = 7.4
             
+    admit_coordinating_waters(current_protein, waters)
     return label_alternates(current_protein), ph
 
 
@@ -588,6 +629,58 @@ def centroid(residue, ring_atoms, entity):
     centroid_atom = Atom("RNG", centroid[0], centroid[1], centroid[2], 1, residue, entity)
     
     return centroid_atom
+
+
+def admit_coordinating_waters(protein, waters):
+    """Admit the waters that coordinate a metal, and only those.
+
+    A water within the metal-coordination window of a metal atom is a ligand of
+    that metal centre, not incidental solvent: the sixth coordination position
+    of a resting-state cytochrome P450 is an aqua ligand, 2.07 A from the heme
+    iron in PDB 1TQN, and excluding water dropped that bond entirely.
+
+    `waters` holds the records set aside during parsing, as plain tuples -
+    nothing is materialised into a Residue until it earns admission, so a
+    structure with a thousand waters and no metal pays for a thousand tuples
+    and nothing else. With no metals present the function returns immediately.
+
+    An admitted water is a hetero residue with a single oxygen and an all-zero
+    property vector, exactly as a metal is, so the only contact it can form is
+    the coordination itself. It is appended to its own chain, which keeps it
+    out of the way of the polymer.
+    """
+    if not waters:
+        return protein
+
+    from src.conditions import METALS, categories
+
+    metals = [(atom.x, atom.y, atom.z)
+              for residue in protein.get_residues() if residue.is_hetero
+              for atom in residue.atoms if atom.element in METALS]
+    if not metals:
+        return protein
+
+    window = categories['metal_coordination'][1]
+    chains = {chain.id: chain for chain in protein.chains}
+
+    for (chain_id, resnum, icode, resname, atomname,
+         x, y, z, occupancy, entity, element, altloc) in waters:
+        if not any((x - mx) ** 2 + (y - my) ** 2 + (z - mz) ** 2 <= window ** 2
+                   for mx, my, mz in metals):
+            continue
+
+        chain = chains.get(chain_id)
+        if chain is None:
+            chain = Chain(chain_id, [])
+            protein.chains.append(chain)
+            chains[chain_id] = chain
+
+        residue = Residue(resnum, resname, [], chain, False, None, True, icode)
+        residue.atoms.append(Atom(atomname, x, y, z, occupancy, residue,
+                                  entity, element, altloc))
+        chain.residues.append(residue)
+
+    return protein
 
 
 ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
