@@ -106,6 +106,18 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
     for chain in protein.chains:
         prot_chains.append(chain.id)
 
+    # Validate the requested chains ONCE. This check used to sit inside the
+    # residue pair loop, where it cost O(pairs x chains): its answer cannot
+    # change from one pair to the next, and with -c naming every chain of a
+    # 2,121-residue structure it was 6 of the 7.8 seconds of detection - more
+    # than the atom loop itself. Admitting HETATM made that worse rather than
+    # better, because mmCIF gives each component its own label_asym_id: 3FZN
+    # has 4 polymer chains and 33 once its ligands are admitted.
+    if chains is not None:
+        for chain in chains:
+            if chain not in prot_chains:
+                sys.exit(f"Error: Chain {chain} is not present in the protein.")
+
     residues = list(protein.get_residues())
     contacts = []
     interface_res = []
@@ -148,11 +160,6 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
         for _, residue2 in enumerate(residues[i+1:], start=i+1):
             chain1, chain2 = residue1.chain.id, residue2.chain.id
 
-            if chains is not None:
-                for chain in chains:
-                    if chain not in prot_chains:
-                        sys.exit(f"Error: Chain {chain} is not present in the protein.")
-
             if (
                 # Same residue. The insertion code is part of the test:
                 # 100 and 100A share a number but are two residues, and
@@ -167,12 +174,14 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
             ):
                 continue
 
+            hetero_pair = False
             if residue1.is_hetero or residue2.is_hetero:
                 # Computed bound. The mined Ca-Ca table covers amino-acid pairs
                 # only, and there is no equivalent for a prosthetic group or
                 # ligand, so the cutoff is derived from this file's coordinates.
                 # Single-atom entities (metal ions, chloride) reach this branch
                 # too, which the len(atoms) > 1 test below would have excluded.
+                hetero_pair = True
                 anchor1, anchor2 = residue1.anchor, residue2.anchor
                 if anchor1 is None or anchor2 is None:
                     continue
@@ -180,6 +189,18 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
                                        (anchor2.x, anchor2.y, anchor2.z))
                 if anchor_distance > residue1.radius + residue2.radius + ceiling:
                     continue
+                # One sphere per entity is a loose bound for anything large: a
+                # 40-atom heme has a radius of ~9 A, so the pair bound reaches
+                # 20 A and every residue inside that sphere ran a full
+                # atom-by-atom comparison. On 3FZN, 29 hetero residues out of
+                # 2,121 cost 4.6 million distance calls and made detection 4.5
+                # times slower than the amino-acid-only baseline. The per-atom
+                # bounds below cut that down; they are exact, not heuristic -
+                # an atom farther from the other entity's centre than that
+                # entity's radius plus the largest contact distance cannot
+                # reach any of its atoms.
+                reach1 = residue2.radius + ceiling
+                reach2 = residue1.radius + ceiling
 
             elif len(residue1.atoms) > 1 and len(residue2.atoms) > 1:
                 ca1, ca2 = residue1.atoms[1], residue2.atoms[1] # alpha carbons
@@ -251,7 +272,13 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
                     })
                     
             for atom1 in residue1.atoms:
+                if hetero_pair and dist((atom1.x, atom1.y, atom1.z),
+                                        (anchor2.x, anchor2.y, anchor2.z)) > reach1:
+                    continue        # cannot reach any atom of the other residue
                 for atom2 in residue2.atoms:
+                    if hetero_pair and dist((atom2.x, atom2.y, atom2.z),
+                                            (anchor1.x, anchor1.y, anchor1.z)) > reach2:
+                        continue
                     
                     if interface:
                         residue_interface_key = f"{chain1},{residue1.resnum},{residue1.resname}"
