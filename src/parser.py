@@ -192,8 +192,10 @@ def parse_pdb(pdb_file):
                 
                 x, y, z = float(line[30:38]), float(line[38:46]), float(line[46:54])
                 occupancy = float(line[55:60])
+                altloc = line[16:17].strip()   # column 17
                 
-                atom = Atom(atomname, x, y, z, occupancy, current_residue, entity, element) # creates atom
+                atom = Atom(atomname, x, y, z, occupancy, current_residue, entity,
+                            element, altloc) # creates atom
 
                 # Alternate conformations: keep exactly ONE copy of each atom
                 # name - the highest occupancy, and the first one on a tie.
@@ -244,7 +246,7 @@ def parse_pdb(pdb_file):
                     id = id.split(".")[0]
                     current_protein.id = id  
     
-    return current_protein, ph
+    return label_alternates(current_protein), ph
 
 
 def parse_cif(cif_file):
@@ -355,6 +357,11 @@ def parse_cif(cif_file):
                 # The insertion code. '?' or '.' means there is none.
                 icode_index = (atom_lines.index("pdbx_PDB_ins_code")
                                if "pdbx_PDB_ins_code" in atom_lines else None)
+
+                # The alternate-location indicator, which is what separates two
+                # chemical identities modelled at the same position.
+                altloc_index = (atom_lines.index("label_alt_id")
+                                if "label_alt_id" in atom_lines else None)
                 
                 x_index = atom_lines.index("Cartn_x")
                 y_index = atom_lines.index("Cartn_y")
@@ -462,8 +469,11 @@ def parse_cif(cif_file):
                     entity = chain_id
                 else:
                     entity = line[entity_index]
+
+                altloc = ("" if altloc_index is None else line[altloc_index])
                     
-                atom = Atom(atomname, x, y, z, occupancy, current_residue, entity, element) # creates atom
+                atom = Atom(atomname, x, y, z, occupancy, current_residue, entity,
+                            element, altloc) # creates atom
 
                 # Alternate conformations: keep exactly ONE copy of each atom
                 # name - the highest occupancy, and the first one on a tie.
@@ -517,7 +527,7 @@ def parse_cif(cif_file):
     if ph == 0 or ph > 14:
         ph = 7.4
             
-    return current_protein, ph
+    return label_alternates(current_protein), ph
 
 
 def build_hetero_rings(residue, ring_table):
@@ -578,6 +588,60 @@ def centroid(residue, ring_atoms, entity):
     centroid_atom = Atom("RNG", centroid[0], centroid[1], centroid[2], 1, residue, entity)
     
     return centroid_atom
+
+
+ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def label_alternates(protein):
+    """Label apart the residues modelled at one and the same position.
+
+    Microheterogeneity: a position carrying two or three different chemical
+    identities, each at partial occupancy, distinguished in the file by the
+    alternate-location column. 9C21 models position A/73 as the unmodified
+    His73 (altloc B, occupancy 0.50) and the 2-methylhistidine HIC73 (altloc A,
+    0.50); 3NED models A/67 as three chromophore variants, NRQ, CH6 and EYG at
+    altlocs A, B and C. Roughly 0.14% of the PDB.
+
+    Every alternative is kept - both are deposited data, and which one matters
+    depends on the question being asked - but without a label their records are
+    indistinguishable in the output beyond the residue name. Each gets the
+    file's own alternate-location letter appended to its number: `73A`, `73B`.
+    A residue whose alternatives carry no letter falls back to a sequential
+    one, and a suffix that would collide with another residue's label in the
+    same chain is numbered instead.
+
+    Called once at the end of parsing, because crowding is a property of the
+    position rather than of the residue. DISPLAY ONLY: pruning, the contact
+    registry and the validation guard key on (chain, resnum, icode, resname),
+    which already separates these residues, so a label can never change which
+    contacts are found.
+    """
+    for chain in protein.chains:
+        positions = {}
+        for residue in chain.residues:
+            positions.setdefault((residue.resnum, residue.icode), []).append(residue)
+
+        taken = {f"{r.resnum}{r.icode}" for r in chain.residues}
+        for (resnum, icode), group in positions.items():
+            if len({r.resname for r in group}) < 2:
+                continue          # one identity, nothing to separate
+
+            used = set()
+            for index, residue in enumerate(group):
+                suffix = residue.altloc
+                if not suffix or suffix in used:
+                    # No letter in the file, or the same letter used twice at
+                    # this position: fall back to the first free one.
+                    suffix = next((c for c in ALPHABET if c not in used),
+                                  str(index + 1))
+                while f"{resnum}{icode}{suffix}" in taken:
+                    suffix += "1"        # a real insertion code got there first
+                used.add(suffix)
+                taken.add(f"{resnum}{icode}{suffix}")
+                residue.alt_suffix = suffix
+
+    return protein
 
 
 def calc_normal_vector(ring_atoms):

@@ -173,10 +173,31 @@ class Residue:
         self.anchor = None
         self.radius = 0.0
 
+        # Suffix separating this residue from the others modelled at the same
+        # position. Empty for all but the ~0.14% of structures that carry
+        # microheterogeneity, and set by parser.label_alternates() once the
+        # whole structure is known, because crowding is a property of the
+        # position rather than of the residue. Display only: the pruning, the
+        # contact registry and the validation guard all key on
+        # (chain, resnum, icode, resname), which already separates these.
+        self.alt_suffix = ""
+
+    @property
+    def altloc(self):
+        """The residue's alternate-location letter, '' when it has none."""
+        for atom in self.atoms:
+            if atom.altloc:
+                return atom.altloc
+        return ""
+
     @property
     def label(self):
-        """The residue number as it should appear in output: 100, or 100A."""
-        return f"{self.resnum}{self.icode}"
+        """The residue number as it should appear in output.
+
+        `100` normally, `100A` when the file gives an insertion code, and
+        `73B` for one of two chemical identities modelled at position 73.
+        """
+        return f"{self.resnum}{self.icode}{self.alt_suffix}"
 
     @property
     def key(self):
@@ -196,9 +217,11 @@ class Atom:
         occupancy (float): The occupancy value of the atom.
         residue (Residue): The residue to which the atom belongs.
         entity (int): The entity in which the atom is located.
+        altloc (str): The alternate-location indicator, '' when there is none.
     """
     
-    def __init__(self, atomname, x, y, z, occupancy, residue, entity, element=None):
+    def __init__(self, atomname, x, y, z, occupancy, residue, entity, element=None,
+                 altloc=""):
         """
         Initializes a new Atom instance.
         """
@@ -216,6 +239,12 @@ class Atom:
         self.occupancy = occupancy
         self.residue = residue
         self.entity = entity
+
+        # Alternate-location indicator: PDB column 17, mmCIF `label_alt_id`.
+        # It is what separates two chemical identities modelled at one position
+        # - 9C21's His73 (altloc B) from the 2-methylhistidine HIC73 (altloc A)
+        # - and it is the letter used to label them apart in the output.
+        self.altloc = "" if altloc in (None, ".", "?") else altloc.strip()
 
 
 #: Single-character CCD component identifiers are indistinguishable from the
@@ -272,7 +301,7 @@ class Contact:
     def __init__(self, id1, chain1, residue_num1, residue_name1, atom1, 
                  id2, chain2, residue_num2, residue_name2, atom2, 
                  distance, type, atom_object1, atom_object2, is_uncertain=False,
-                 icode1="", icode2=""):
+                 icode1="", icode2="", alt1="", alt2=""):
         """
         Initializes a new Contact instance.
         """
@@ -298,14 +327,21 @@ class Contact:
         self.icode1 = icode1 or ""
         self.icode2 = icode2 or ""
 
+        # Suffix separating one of two chemical identities modelled at the same
+        # position. Display only - nothing keys on it - so a validation guard
+        # comparing (chain, resnum, icode, resname, atom) is unaffected by a
+        # position becoming crowded, or ceasing to be, between two runs.
+        self.alt1 = alt1 or ""
+        self.alt2 = alt2 or ""
+
     @property
     def label1(self):
-        """First residue's number as printed: 100, or 100A."""
-        return f"{self.residue_num1}{self.icode1}"
+        """First residue's number as printed: 100, 100A, or 73B."""
+        return f"{self.residue_num1}{self.icode1}{self.alt1}"
 
     @property
     def label2(self):
-        return f"{self.residue_num2}{self.icode2}"
+        return f"{self.residue_num2}{self.icode2}{self.alt2}"
 
     @staticmethod
     def _is_hetero(atom):
