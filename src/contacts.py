@@ -414,8 +414,20 @@ def calc_angle(vector1, vector2):
     
     dot_product = dot(vector1, vector2)
     magnitude_product = norm(vector1) * norm(vector2) # normalizes the dot product
-    angle = arccos(dot_product / magnitude_product) # angle in radians   
-    
+
+    if magnitude_product == 0:
+        return 0.0            # a degenerate plane has no meaningful angle
+
+    # Clamp before arccos. The ring normals come from an SVD and are unit
+    # vectors, so the ratio is mathematically in [-1, 1] - but for two nearly
+    # parallel rings floating point puts it at 1.0000000000000002 about one
+    # time in a hundred, and arccos then warns 'invalid value encountered in
+    # arccos' and returns nan. A nan angle fails every branch of the
+    # parallel/perpendicular test and fell through to 'stacking-other',
+    # mislabelling precisely the most parallel stackings there are.
+    ratio = min(1.0, max(-1.0, dot_product / magnitude_product))
+    angle = arccos(ratio) # angle in radians
+
     return degrees(angle)
 
 
