@@ -191,7 +191,16 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
             else:
                 continue
 
-            pair_key = (chain1, residue1.resnum, chain2, residue2.resnum)
+            # The residue NAME is part of the key. Without it, a position
+            # modelled as two different residues - microheterogeneity, where
+            # one alternative is deposited as HETATM and the other as ATOM -
+            # collapsed to one key, and the electrostatic registry below let
+            # only the first of them keep a salt bridge, attractive or
+            # repulsive contact. PDB 4Z0Y is the case: His252 and the modified
+            # HS8 share position 252 at occupancies 0.49 and 0.51, and 24 of
+            # the histidine's contacts disappeared as soon as HS8 was admitted.
+            pair_key = (chain1, residue1.resnum, residue1.resname,
+                        chain2, residue2.resnum, residue2.resname)
 
             # CHECKING FOR AROMATIC STACKINGS
             # Every ring system of one residue against every ring system of the

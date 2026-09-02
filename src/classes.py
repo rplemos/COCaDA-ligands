@@ -213,6 +213,21 @@ def display_resname(resname, is_hetero):
     return resname.lower() if is_hetero and len(resname) == 1 else resname
 
 
+def csv_field(value):
+    """One CSV field, quoted only when it has to be (RFC 4180).
+
+    Needed because a deposited atom name may contain a comma. 105 atom
+    identifiers in the Chemical Component Dictionary do - `"C1,"` and `"O3,"`
+    in nine sugar-bearing components, where a comma stands in for the usual
+    prime - and 31 contain a double quote. Written raw, such a name adds a
+    column to its row and silently shifts everything after it.
+    """
+    text = str(value)
+    if any(ch in text for ch in (',', '"', '\n', '\r')):
+        return '"' + text.replace('"', '""') + '"'
+    return text
+
+
 class Contact: 
     """
     Represents a contact between two atoms in different residues.
@@ -314,7 +329,7 @@ class Contact:
         # Named attributes, deliberately. This used to read self.__dict__ by
         # position - all_values[11] was the type - so adding any field to
         # Contact silently shifted every column of the CSV.
-        return ",".join(str(field) for field in (
+        return ",".join(csv_field(field) for field in (
             self.chain1, self.residue_num1,
             display_resname(self.residue_name1, self.hetero1), self.atom1,
             self.chain2, self.residue_num2,

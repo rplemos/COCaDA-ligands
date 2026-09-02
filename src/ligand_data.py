@@ -25,6 +25,23 @@ The property vector [Hydrophobic, Aromatic, Positive, Negative, Donor,
 Acceptor] is packed into one integer, bit i holding flag i. So 2 is
 "aromatic only" and 33 is "hydrophobic + acceptor".
 
+ATOM NAMES ARE ESCAPED
+----------------------
+A deposited atom name may contain any of this format's delimiters. 105 atom
+identifiers in the dictionary contain a COMMA - `"C1,"` and `"O3,"` in
+18T, 8VT, HTD and six other sugar-bearing components, where a comma stands in
+for the usual prime - and the primed forms `C2'`, `O5'` are everywhere. An
+unescaped comma splits one atom entry into two, and the second half fails to
+parse; before this was fixed, COCaDA raised
+`ValueError: invalid literal for int() with base 10: 'C2'` on any structure
+containing one of those nine components, and 11 entries in a 100,000-structure
+validation run died that way.
+
+So names are percent-escaped on the way out and unescaped on the way in, for
+`%` and every delimiter: comma, equals, pipe, semicolon, tab, newline. `C1,`
+is written `C1%2C`. Only the 105 affected names change shape; everything else
+is byte-identical to before, primes included.
+
 COCaDA v1.6+ - ligand support extension
 """
 
@@ -41,6 +58,26 @@ _cache_types = {}       # 'HEM:FE' -> [0, 0, 0, 0, 0, 0]
 _cache_rings = {}       # 'HEM'    -> [['C1A', ...], ...]
 _loaded = set()         # component ids already read from disk
 _missing = set()        # component ids looked up and not present
+
+
+#: Characters that are structural in the data file and must not appear raw
+#: inside an atom name. Percent itself first, so encoding is unambiguous.
+_ESCAPES = (("%", "%25"), (",", "%2C"), ("=", "%3D"), ("|", "%7C"),
+            (";", "%3B"), ("\t", "%09"), ("\n", "%0A"), ("\r", "%0D"))
+
+
+def encode_name(name):
+    """Escape an atom name for the data file."""
+    for raw, code in _ESCAPES:
+        name = name.replace(raw, code)
+    return name
+
+
+def decode_name(name):
+    """Reverse encode_name. Percent last, mirroring the encode order."""
+    for raw, code in reversed(_ESCAPES):
+        name = name.replace(code, raw)
+    return name
 
 
 def unpack(mask):
@@ -82,13 +119,22 @@ def load_for(comp_ids):
                 for entry in atoms_field.split(","):
                     if not entry:
                         continue
-                    name, _, mask = entry.rpartition("=")
-                    _cache_types[f"{comp_id}:{name}"] = unpack(int(mask))
+                    name, sep, mask = entry.rpartition("=")
+                    if not sep or not mask.isdigit():
+                        raise ValueError(
+                            f"{DATA_FILE}: component {comp_id} has an "
+                            f"unparsable atom entry {entry!r}. A table built "
+                            f"before atom names were escaped cannot be read; "
+                            f"rebuild it with "
+                            f"'python3 tools/build_ligand_table.py --ccd "
+                            f"components.cif --repair'.")
+                    _cache_types[f"{comp_id}:{decode_name(name)}"] = unpack(int(mask))
 
                 rings_field = rings_field.strip()
                 if rings_field:
-                    _cache_rings[comp_id] = [ring.split("|")
-                                             for ring in rings_field.split(";")]
+                    _cache_rings[comp_id] = [
+                        [decode_name(atom) for atom in ring.split("|")]
+                        for ring in rings_field.split(";")]
 
                 found.add(comp_id)
                 if found == wanted:

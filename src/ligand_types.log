@@ -1246,3 +1246,73 @@ SKIP	UNX	Post-condition Violation
 	RDKIT: 2026.03.5
 	BOOST: 1_85
 
+SKIP	ASX	Post-condition Violation
+	Element 'X' not found
+	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
+	Failed Expression: anum > -1
+	RDKIT: 2026.03.5
+	BOOST: 1_85
+
+SKIP	D3O	Post-condition Violation
+	Element 'D' not found
+	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
+	Failed Expression: anum > -1
+	RDKIT: 2026.03.5
+	BOOST: 1_85
+
+SKIP	D8U	Post-condition Violation
+	Element 'D' not found
+	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
+	Failed Expression: anum > -1
+	RDKIT: 2026.03.5
+	BOOST: 1_85
+
+SKIP	DOD	Post-condition Violation
+	Element 'D' not found
+	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
+	Failed Expression: anum > -1
+	RDKIT: 2026.03.5
+	BOOST: 1_85
+
+SKIP	DUM	Post-condition Violation
+	Element 'X' not found
+	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
+	Failed Expression: anum > -1
+	RDKIT: 2026.03.5
+	BOOST: 1_85
+
+SKIP	GLX	Post-condition Violation
+	Element 'X' not found
+	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
+	Failed Expression: anum > -1
+	RDKIT: 2026.03.5
+	BOOST: 1_85
+
+SKIP	ND4	Post-condition Violation
+	Element 'D' not found
+	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
+	Failed Expression: anum > -1
+	RDKIT: 2026.03.5
+	BOOST: 1_85
+
+SKIP	SPW	Post-condition Violation
+	Element 'D' not found
+	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
+	Failed Expression: anum > -1
+	RDKIT: 2026.03.5
+	BOOST: 1_85
+
+SKIP	TSD	Post-condition Violation
+	Element 'D' not found
+	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
+	Failed Expression: anum > -1
+	RDKIT: 2026.03.5
+	BOOST: 1_85
+
+SKIP	UNX	Post-condition Violation
+	Element 'X' not found
+	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
+	Failed Expression: anum > -1
+	RDKIT: 2026.03.5
+	BOOST: 1_85
+

@@ -73,6 +73,11 @@ def main():
                         help="Add only components missing from an existing table, "
                              "keeping everything already there. Use after a CCD "
                              "update, or after a reader fix widens coverage.")
+    parser.add_argument("--repair", action="store_true",
+                        help="Re-type only the components whose stored line cannot "
+                             "be parsed, keeping the rest of the table untouched. "
+                             "Use after a format fix: it takes seconds rather than "
+                             "the full rebuild's twenty minutes.")
     parser.add_argument("--every", type=int, default=1000, metavar="N",
                         help="Progress interval. Default 1000.")
     args = parser.parse_args()
@@ -83,7 +88,7 @@ def main():
     import ccd as ccd_module
     from generate_atom_types import (_load_factory, type_molecule,
                                      stacking_rings)
-    from ligand_data import pack
+    from ligand_data import encode_name, pack
 
     partial = args.out + ".partial"
     logfile = os.path.splitext(args.out)[0]
@@ -94,6 +99,28 @@ def main():
         for path in (partial, logfile):
             if os.path.exists(path):
                 os.remove(path)
+
+    if args.repair:
+        if not os.path.exists(args.out):
+            sys.exit(f"error: nothing to repair; {args.out} does not exist")
+        if os.path.exists(partial):
+            os.remove(partial)
+        broken = []
+        with gzip.open(args.out, "rt") as gz, open(partial, "w") as raw:
+            for line in gz:
+                comp_id, _, rest = line.partition("\t")
+                atoms_field, _, _ = rest.partition("\t")
+                entries = [e for e in atoms_field.split(",") if e]
+                ok = all("=" in e and e.rpartition("=")[2].isdigit()
+                         for e in entries)
+                if ok:
+                    raw.write(line)
+                else:
+                    broken.append(comp_id)
+        if not broken:
+            os.remove(partial)
+            sys.exit(f"nothing to repair: every line in {args.out} parses")
+        print(f"repairing {len(broken)} component(s): {', '.join(broken)}")
 
     if args.extend and os.path.exists(args.out) and not os.path.exists(partial):
         print(f"extending {os.path.basename(args.out)}: "
@@ -141,8 +168,11 @@ def main():
             if not atoms:
                 continue
 
-            packed = ",".join(f"{n}={pack(atoms[n])}" for n in sorted(atoms))
-            rings = ";".join("|".join(r) for r in systems)
+            # Atom names are escaped: a deposited name may contain this
+            # format's own delimiters. See ligand_data for the rule.
+            packed = ",".join(f"{encode_name(n)}={pack(atoms[n])}"
+                              for n in sorted(atoms))
+            rings = ";".join("|".join(encode_name(a) for a in r) for r in systems)
             out.write(f"{component.id}\t{packed}\t{rings}\n")
             out.flush()                    # survive an interruption
             written += 1
