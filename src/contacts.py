@@ -154,7 +154,13 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
                         sys.exit(f"Error: Chain {chain} is not present in the protein.")
 
             if (
-                (residue1.resnum == residue2.resnum and chain1 == chain2)  # same residue
+                # Same residue. The insertion code is part of the test:
+                # 100 and 100A share a number but are two residues, and
+                # without the code every contact between them was skipped
+                # here as self-contact.
+                (residue1.resnum == residue2.resnum
+                 and residue1.icode == residue2.icode
+                 and chain1 == chain2)  # same residue
                 or (region and (residue1.resnum not in region or residue2.resnum not in region))  # outside region
                 or (chains and (chain1 not in chains or chain2 not in chains))  # chains not allowed
                 or (interchain and chain1 == chain2)  # interchain required but same chain
@@ -199,8 +205,8 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
             # repulsive contact. PDB 4Z0Y is the case: His252 and the modified
             # HS8 share position 252 at occupancies 0.49 and 0.51, and 24 of
             # the histidine's contacts disappeared as soon as HS8 was admitted.
-            pair_key = (chain1, residue1.resnum, residue1.resname,
-                        chain2, residue2.resnum, residue2.resname)
+            pair_key = (chain1, residue1.resnum, residue1.icode, residue1.resname,
+                        chain2, residue2.resnum, residue2.icode, residue2.resname)
 
             # CHECKING FOR AROMATIC STACKINGS
             # Every ring system of one residue against every ring system of the
@@ -228,10 +234,12 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
                         'protein_id': protein.id,
                         'chain1': chain1,
                         'resnum1': residue1.resnum,
+                        'icode1': residue1.icode,
                         'resname1': residue1.resname,
                         'atomname1': ring1.atomname,
                         'chain2': chain2,
                         'resnum2': residue2.resnum,
+                        'icode2': residue2.icode,
                         'resname2': residue2.resname,
                         'atomname2': ring2.atomname,
                         'distance': float(f"{distance:.2f}"),
@@ -327,10 +335,12 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
                                         'protein_id': protein.id,
                                         'chain1': chain1,
                                         'resnum1': residue1.resnum,
+                                        'icode1': residue1.icode,
                                         'resname1': residue1.resname,
                                         'atomname1': atom1.atomname,
                                         'chain2': chain2,
                                         'resnum2': residue2.resnum,
+                                        'icode2': residue2.icode,
                                         'resname2': residue2.resname,
                                         'atomname2': atom2.atomname,
                                         'distance': float(f"{distance:.2f}"),
@@ -539,7 +549,9 @@ def create_contacts(contacts_by_pair):
                 entry['distance'],
                 contact_type,
                 entry['atom1'],
-                entry['atom2']
+                entry['atom2'],
+                icode1=entry.get('icode1', ''),
+                icode2=entry.get('icode2', ''),
             )
             contacts.append(contact)
 

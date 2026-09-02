@@ -124,6 +124,10 @@ class Residue:
 
     Attributes:
         resnum (int): The residue number.
+        icode (str): The insertion code, '' when there is none. Part of the
+            residue's identity: 100, 100A and 100B are three different
+            residues sharing one number, which is how antibody CDRs are
+            numbered.
         resname (str): The residue name (e.g., 'ALA' for alanine).
         atoms (list of Atom): A list of Atom objects in the residue.
         chain (Chain): The chain to which the residue belongs.
@@ -131,12 +135,18 @@ class Residue:
         normal_vector (tuple): The normal vector associated with the residue.
     """
     
-    def __init__(self, resnum, resname, atoms, chain, ring, normal_vector, is_hetero=False):
+    def __init__(self, resnum, resname, atoms, chain, ring, normal_vector,
+                 is_hetero=False, icode=""):
         """
         Initializes a new Residue instance.
         """
         
         self.resnum = resnum
+
+        # The insertion code, kept separate so resnum stays an integer for the
+        # sequence-distance filter and the -reg region selection, while the
+        # residue's identity and its printed label carry the code.
+        self.icode = icode or ""
         self.resname = resname
         self.atoms = atoms
         self.chain = chain
@@ -162,6 +172,16 @@ class Residue:
         # coordinates in the file. Both are set by contacts.set_anchors().
         self.anchor = None
         self.radius = 0.0
+
+    @property
+    def label(self):
+        """The residue number as it should appear in output: 100, or 100A."""
+        return f"{self.resnum}{self.icode}"
+
+    @property
+    def key(self):
+        """Identity within a structure: chain, number, insertion code, name."""
+        return (self.chain.id, self.resnum, self.icode, self.resname)
   
       
 class Atom:
@@ -251,7 +271,8 @@ class Contact:
     
     def __init__(self, id1, chain1, residue_num1, residue_name1, atom1, 
                  id2, chain2, residue_num2, residue_name2, atom2, 
-                 distance, type, atom_object1, atom_object2, is_uncertain=False):
+                 distance, type, atom_object1, atom_object2, is_uncertain=False,
+                 icode1="", icode2=""):
         """
         Initializes a new Contact instance.
         """
@@ -271,6 +292,20 @@ class Contact:
         self.atom_object1 = atom_object1
         self.atom_object2 = atom_object2
         self.is_uncertain = is_uncertain
+
+        # Insertion codes, '' when there are none. Kept beside the numbers
+        # rather than folded into them so residue_num stays an integer.
+        self.icode1 = icode1 or ""
+        self.icode2 = icode2 or ""
+
+    @property
+    def label1(self):
+        """First residue's number as printed: 100, or 100A."""
+        return f"{self.residue_num1}{self.icode1}"
+
+    @property
+    def label2(self):
+        return f"{self.residue_num2}{self.icode2}"
 
     @staticmethod
     def _is_hetero(atom):
@@ -330,9 +365,9 @@ class Contact:
         # position - all_values[11] was the type - so adding any field to
         # Contact silently shifted every column of the CSV.
         return ",".join(csv_field(field) for field in (
-            self.chain1, self.residue_num1,
+            self.chain1, self.label1,
             display_resname(self.residue_name1, self.hetero1), self.atom1,
-            self.chain2, self.residue_num2,
+            self.chain2, self.label2,
             display_resname(self.residue_name2, self.hetero2), self.atom2,
             self.distance, map_type[self.type],
             "y" if self.is_amino_pair else "n",

@@ -128,6 +128,10 @@ def parse_pdb(pdb_file):
                             break
                         
                 resnum = int(line[22:26])
+                # Column 27 is the insertion code. Residues 100, 100A and 100B
+                # are three residues on one number - antibody CDRs are numbered
+                # exactly that way - so it is part of the residue's identity.
+                icode = line[26:27].strip() if len(line) > 26 else ""
                 # if resnum <= 0:
                 #     continue
                 resname = line[17:20].strip()
@@ -157,16 +161,22 @@ def parse_pdb(pdb_file):
 
                 if current_residue is None:  # first residue of the chain
                     atoms = []
-                    current_residue = Residue(resnum, resname, atoms, current_chain, False, None, is_hetero)
+                    current_residue = Residue(resnum, resname, atoms, current_chain,
+                                              False, None, is_hetero, icode)
                     #current_chain.residues.append(current_residue)
                 
-                # A new residue is detected on resnum OR resname: a ligand and a
-                # protein residue can share a number, and only the name separates them.
-                if current_residue.resnum != resnum or current_residue.resname != resname:
+                # A new residue is detected on resnum, insertion code OR
+                # resname: a ligand and a protein residue can share a number
+                # and only the name separates them, and 100 / 100A share both
+                # number and name with only the code between them.
+                if (current_residue.resnum != resnum
+                        or current_residue.icode != icode
+                        or current_residue.resname != resname):
                     if len(current_residue.atoms) >= 1:
                         current_chain.residues.append(current_residue)
                     atoms = []
-                    current_residue = Residue(resnum, resname, atoms, current_chain, False, None, is_hetero)
+                    current_residue = Residue(resnum, resname, atoms, current_chain,
+                                              False, None, is_hetero, icode)
                                                                 
                 atomname = line[12:16].replace(" ", "")
                 element = element_of(atomname, line[76:78] if len(line) >= 78 else None)
@@ -341,6 +351,10 @@ def parse_cif(cif_file):
                     resnum_index = atom_lines.index("auth_seq_id")
                 else:
                     resnum_index = atom_lines.index("label_seq_id")
+
+                # The insertion code. '?' or '.' means there is none.
+                icode_index = (atom_lines.index("pdbx_PDB_ins_code")
+                               if "pdbx_PDB_ins_code" in atom_lines else None)
                 
                 x_index = atom_lines.index("Cartn_x")
                 y_index = atom_lines.index("Cartn_y")
@@ -386,6 +400,9 @@ def parse_cif(cif_file):
                     chain_id = line[chain_index2]
                 
                 resnum = int(line[resnum_index])
+                icode = "" if icode_index is None else line[icode_index]
+                if icode in (".", "?"):
+                    icode = ""
                 # if resnum <= 0:
                 #     continue
                 resname = line[resname_index]
@@ -415,16 +432,22 @@ def parse_cif(cif_file):
 
                 if current_residue is None:  # first residue of the chain
                     atoms = []
-                    current_residue = Residue(resnum, resname, atoms, current_chain, False, None, is_hetero)
+                    current_residue = Residue(resnum, resname, atoms, current_chain,
+                                              False, None, is_hetero, icode)
                     #current_chain.residues.append(current_residue)
                 
-                # A new residue is detected on resnum OR resname: a ligand and a
-                # protein residue can share a number, and only the name separates them.
-                if current_residue.resnum != resnum or current_residue.resname != resname:
+                # A new residue is detected on resnum, insertion code OR
+                # resname: a ligand and a protein residue can share a number
+                # and only the name separates them, and 100 / 100A share both
+                # number and name with only the code between them.
+                if (current_residue.resnum != resnum
+                        or current_residue.icode != icode
+                        or current_residue.resname != resname):
                     if len(current_residue.atoms) >= 1:
                         current_chain.residues.append(current_residue) 
                     atoms = []
-                    current_residue = Residue(resnum, resname, atoms, current_chain, False, None, is_hetero)
+                    current_residue = Residue(resnum, resname, atoms, current_chain,
+                                              False, None, is_hetero, icode)
                                                                 
                 atomname = line[atomname_index]
                 # OXT is a legitimate atom name inside some components, so the
