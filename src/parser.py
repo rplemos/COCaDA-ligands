@@ -663,8 +663,21 @@ def admit_coordinating_waters(protein, waters):
     window = categories['metal_coordination'][1]
     chains = {chain.id: chain for chain in protein.chains}
 
+    # One record per position, highest occupancy, first on a tie - the same
+    # rule the atom path applies, and water needs it too: a water modelled in
+    # two alternate positions arrives here as two records with one residue
+    # number, and both would coordinate the metal, reporting one bond twice.
+    # 17 structures in a 245,839-entry validation did exactly that.
+    best = {}
+    for record in waters:
+        chain_id, resnum, icode = record[0], record[1], record[2]
+        occupancy = record[8]
+        key = (chain_id, resnum, icode)
+        if key not in best or occupancy > best[key][8]:
+            best[key] = record
+
     for (chain_id, resnum, icode, resname, atomname,
-         x, y, z, occupancy, entity, element, altloc) in waters:
+         x, y, z, occupancy, entity, element, altloc) in best.values():
         if not any((x - mx) ** 2 + (y - my) ** 2 + (z - mz) ** 2 <= window ** 2
                    for mx, my, mz in metals):
             continue
