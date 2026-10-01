@@ -120,6 +120,14 @@ def cif_tokens(line):
     return [match.group(match.lastindex) for match in _CIF_TOKEN.finditer(line)]
 
 
+#: Identifiers that stand for "no identifier". RCSB writes `_entry.id XXXX` in
+#: every biological-assembly file, and other tools write `?` or `.`; taken as
+#: the structure's id, every such file named its output `XXXX_contacts.csv`
+#: and each run overwrote the last. When the file offers one of these, the id
+#: stays the file name it was given at the start of parsing.
+PLACEHOLDER_IDS = {"XXXX", "?", ".", ""}
+
+
 def element_of(atomname, explicit=None):
     """Best available element symbol for an atom.
 
@@ -185,7 +193,8 @@ def parse_pdb(pdb_file):
                 seqres.setdefault(line[11:12], set()).update(line[19:].split())
 
             elif line.startswith("HEADER"):
-                current_protein.id = line[62:]
+                if line[62:].strip().upper() not in PLACEHOLDER_IDS:
+                    current_protein.id = line[62:]
                 
             elif line.startswith("TITLE"):
                 current_protein.set_title(line[10:])
@@ -396,7 +405,9 @@ def parse_cif(cif_file):
             line = line.strip()
 
             if line.startswith("_entry.id"):
-                current_protein.id = line[-4:]
+                value = line[len("_entry.id"):].strip()
+                if value.upper() not in PLACEHOLDER_IDS:
+                    current_protein.id = line[-4:]
 
             # _entity_poly.type names each polymer entity's kind, which is how a
             # strand made only of modified nucleotides - 1KDH's four BRU - is
