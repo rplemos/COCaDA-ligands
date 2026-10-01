@@ -177,6 +177,27 @@ class Component:
         kind = self.type.upper()
         return "PEPTIDE" in kind or "DNA" in kind or "RNA" in kind or "SACCHARIDE" in kind
 
+    @property
+    def typed_in_chain(self):
+        """Whether to type this component as it occurs inside a chain.
+
+        Only for amino acids: their leaving atoms (OXT, HXT, the second amide H)
+        are dropped and the backbone capped, which reproduces the curated table.
+        Everything else is typed as the free molecule, with every leaving atom.
+
+        Applied to every polymer this was wrong twice over. The CCD flags EVERY
+        hydroxyl hydrogen of a sugar as leaving - any of them could form a
+        glycosidic bond - so dropping them made every sugar OH acceptor-only:
+        NAG O3, O4, O6 donated nothing, a quarter of sugar hydrogen bonds lost.
+        And the CCD calls free nucleotide ligands "RNA LINKING" (GDP, UDP, A3P),
+        so UDP lost its O2B. Nucleotides inside a strand are not analysed until
+        the nucleic-acid import (parser.drop_strand_components), so the free
+        form is the one that is actually met. A sugar oxygen that IS linked to
+        the next residue is typed as the free hydroxyl it would otherwise be,
+        donor included; covalent links are not suppressed yet in any case.
+        """
+        return "PEPTIDE" in self.type.upper()
+
     def heavy_atom_names(self, drop_leaving=False):
         return [a["atom_id"] for a in self.atoms
                 if a.get("type_symbol", "").upper() != "H"
@@ -403,6 +424,36 @@ def to_rdkit(component, drop_leaving=False, cap_peptide=False):
     names = {a.GetIdx(): (a.GetProp("atom_name") if a.HasProp("atom_name") else None)
              for a in final.GetAtoms()}
     return final, names
+
+
+def for_typing(component):
+    """The molecule the generator types for a component: (mol, names).
+
+    Amino acids as they sit inside a chain - leaving atoms dropped, backbone
+    capped. Everything else as the free molecule, every leaving atom kept; see
+    Component.typed_in_chain. One exception: if the free molecule will not
+    sanitise but a sugar or nucleotide's in-chain form does, the in-chain form
+    is used. TC and TG are the cases - typed whole, the CCD gives their
+    phosphorus a valence of 6, the partial sanitisation loses aromaticity, and
+    their rings vanished from the table.
+    """
+    if component.typed_in_chain:
+        return to_rdkit(component, drop_leaving=True, cap_peptide=True)
+
+    before = len(component.repairs)
+    mol, names = to_rdkit(component)
+    failed = any("full sanitisation failed" in note
+                 for note in component.repairs[before:])
+    if failed and component.is_polymer:
+        kept = list(component.repairs)
+        in_chain = to_rdkit(component, drop_leaving=True)
+        if not any("full sanitisation failed" in note
+                   for note in component.repairs[len(kept):]):
+            component.repairs[:] = kept + [
+                "free molecule would not sanitise; typed in-chain instead"]
+            return in_chain
+        component.repairs[:] = kept
+    return mol, names
 
 
 def _cap_peptide(mol, component):

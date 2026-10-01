@@ -84,7 +84,21 @@ R3  Metal-coordinated donors are not free ions.
     No standard amino acid has a metal coordination bond, so this rule
     cannot affect the validation gate; it applies to ligands only.
 
-All three rules are general and apply to ligands as well as amino acids, so
+R4  Ring tautomerism in five-membered rings only. (2026-10-01)
+    LUNA marks a ring nitrogen 1,3 to an N-H as both donor and acceptor,
+    since the hydrogen may sit on either: right for imidazole, triazole and
+    pyrazole, and what makes histidine's ND1 and NE2 reproduce the curated
+    table. In six-membered rings the same SMARTS fire on lactams whose minor
+    tautomer is negligible - guanine N3 and flavin N1, which carry no
+    hydrogen, were donors, and the N-H of guanine N1 and uracil N3 were
+    acceptors. Found by comparing against RING's independent donor/acceptor
+    assignments, ~3,800 atoms. In a five-membered ring the features hold as
+    written; elsewhere the atom's own hydrogens decide - donor only with an
+    H, acceptor only without. Not "drop them": LUNA's ordinary donor rule
+    excludes acidic N-H, so an imide N-H (uracil N3, flavin N3) is a donor
+    only through the tautomer feature, and would otherwise donate nothing.
+
+All four rules are general and apply to ligands as well as amino acids, so
 the same chemistry is used throughout the output.
 
 
@@ -132,6 +146,23 @@ FAMILY_TO_FLAG = {
 IONIZABLE_FAMILIES = ("PositivelyIonizable", "NegativelyIonizable")
 
 # ------------------------------------------------------- reconciliation rules
+
+#: R4 - LUNA's tautomer features, honoured as such in five-membered rings only.
+TAUTOMER_FEATURES = ("TautomerRingDonorN", "TautomerRingAcceptorN")
+
+
+def _tautomer_applies(atom, family):
+    """R4 - whether a tautomer donor/acceptor feature holds for this atom.
+
+    In a five-membered ring (imidazole, triazole, pyrazole) the hydrogen really
+    may sit on either nitrogen, and the feature holds as LUNA writes it. In any
+    other ring the atom's own structure decides: the donor half only on an N
+    that carries a hydrogen, the acceptor half only on one that does not.
+    """
+    if atom.IsInRingSize(5):
+        return True
+    has_h = atom.GetTotalNumHs(includeNeighbors=True) > 0
+    return has_h if family == "Donor" else not has_h
 
 #: R1 exception - the guanidinium carbon carries delocalised positive charge.
 SMARTS_GUANIDINIUM = Chem.MolFromSmarts("[#7][CX3](=[#7])[#7]")
@@ -234,6 +265,8 @@ def type_molecule(mol, factory=None, name_for=None):
         if flag is None:
             continue
         ids = feature.GetAtomIds()
+        if feature.GetType() in TAUTOMER_FEATURES:             # R4
+            ids = [i for i in ids if _tautomer_applies(mol_h.GetAtomWithIdx(i), family)]
         if family in IONIZABLE_FAMILIES:                       # R1
             ids = _charge_bearing_atoms(mol_h, ids, guanidinium)
         for idx in ids:
@@ -424,10 +457,12 @@ def generate_from_ccd(path, wanted=None, factory=None, verbose=True,
     Returns:
         ({comp_id: {atom_name: vector}}, [notes])
 
-    Polymer components are typed as they occur INSIDE A CHAIN: leaving atoms
-    are dropped and the backbone is capped. The CCD stores the free monomer,
-    whose free amine and free carboxylate would otherwise produce donor,
-    acceptor and charge assignments that no residue in a protein actually has.
+    Amino-acid components are typed as they occur INSIDE A CHAIN: leaving
+    atoms are dropped and the backbone is capped. The CCD stores the free
+    monomer, whose free amine and free carboxylate would otherwise produce
+    donor, acceptor and charge assignments that no residue in a protein
+    actually has. Sugars and nucleotides are typed as free molecules; see
+    ccd.Component.typed_in_chain for why.
     """
     import ccd as ccd_module
 
@@ -454,10 +489,8 @@ def generate_from_ccd(path, wanted=None, factory=None, verbose=True,
             continue
         if limit is not None and done >= limit:
             break
-        polymer = component.is_polymer
         try:
-            mol, names = ccd_module.to_rdkit(
-                component, drop_leaving=polymer, cap_peptide=polymer)
+            mol, names = ccd_module.for_typing(component)
         except Exception as exc:                              # noqa: BLE001
             notes.append(f"{comp_id}: could not build molecule ({exc})")
             continue

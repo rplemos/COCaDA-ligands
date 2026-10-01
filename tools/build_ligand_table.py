@@ -153,9 +153,7 @@ def main():
                 continue
 
             try:
-                polymer = component.is_polymer
-                mol, names = ccd_module.to_rdkit(
-                    component, drop_leaving=polymer, cap_peptide=polymer)
+                mol, names = ccd_module.for_typing(component)
                 typed = type_molecule(mol, factory, lambda i: names.get(i))
                 systems = stacking_rings(mol, lambda i: names.get(i))
             except Exception as exc:                          # noqa: BLE001
