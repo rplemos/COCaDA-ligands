@@ -127,15 +127,22 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
     contact_registry = defaultdict(set) # empty set under the key if it doesn't exist
 
     categories = argument_distances if modified_distances else conditions.categories
+
+    # Global ceiling on any contact distance: the atom-loop gate, the hetero
+    # bound, and the reach the Ca table has to be widened by.
+    ceiling = max(hi for _, hi in categories.values())
+
+    # The Ca table was mined for contacts up to 6 A. A wider window needs every
+    # entry widened by the excess, epsilon - once, as the paper describes. It
+    # used to be added twice: here, and again in the pruning test below.
+    # Derived from the windows themselves, so a caller passing custom distances
+    # without an epsilon still gets a table that matches them.
+    epsilon = max(epsilon, ceiling - 6)
     if epsilon > 0:
         max_ca_distance += epsilon
         updated_distances = {key: value + epsilon for key, value in distances.items()}
     else:
         updated_distances = distances
-    
-    # Global ceiling on any contact distance, used for the hetero bound and
-    # matching the `distance <= 6` gate in the atom loop below.
-    ceiling = max(hi for _, hi in categories.values())
 
     # Load property vectors and ring definitions for the non-amino-acid
     # components actually present, and nothing else. Typically one to ten
@@ -212,7 +219,7 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
                     continue
                 else:
                     key = ''.join(sorted((residue1.resname, residue2.resname)))
-                    if distance_ca > (updated_distances[key] + epsilon):
+                    if distance_ca > updated_distances[key]:
                         continue
 
             else:
@@ -301,7 +308,11 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
 
                         distance = dist((atom1.x, atom1.y, atom1.z), (atom2.x, atom2.y, atom2.z))
                         
-                        if distance <= 6: # max distance for contacts
+                        # The largest window, not a literal 6: with -d widening
+                        # any window past 6 A, everything between 6 A and the
+                        # new maximum used to be dropped here - 21% of contacts
+                        # with every window widened by 2 A.
+                        if distance <= ceiling:
 
                             for contact_type, distance_range in categories.items():
 
