@@ -69,6 +69,32 @@ STANDARD_ATOM_NAMES = {
     'MSE': {'SE': 'SD'},
 }
 
+# Nucleic acids are deferred: their values are to be imported from Pro-RNA and
+# RNApedia, not re-derived here. The standard nucleotides are ATOM records and
+# were always skipped - but a MODIFIED nucleotide in the same strand (5CM, BRU,
+# 8OG) is a HETATM, and was admitted as a component and typed by the generator:
+# half a strand, typed by a method the deferral exists to avoid. Such residues
+# are now dropped too, until the import lands.
+#
+# The test is membership in a nucleic-acid CHAIN, not the component's CCD type:
+# the CCD classes free nucleotide ligands as "RNA LINKING" too - GDP, UDP, A3P -
+# and those are cofactors, which stay. mmCIF gives each free ligand its own
+# entity, so a residue is in a strand when its entity also holds standard
+# nucleotides. PDB format shares chain letters between polymer and ligands, so
+# there it is a residue of a nucleic chain that SEQRES lists as part of it.
+STANDARD_NUCLEOTIDES = {'A', 'C', 'G', 'U', 'I', 'N',
+                        'DA', 'DC', 'DG', 'DT', 'DU', 'DI', 'DN'}
+
+
+def drop_strand_components(protein, in_strand):
+    """Remove the hetero residues `in_strand(residue)` places in a nucleic-acid
+    chain, and any chain left empty by it. See STANDARD_NUCLEOTIDES."""
+    for chain in protein.chains:
+        chain.residues = [r for r in chain.residues
+                          if not (r.is_hetero and in_strand(r))]
+    protein.chains = [chain for chain in protein.chains if chain.residues]
+    return protein
+
 
 #: One mmCIF value: single-quoted, double-quoted or bare. A closing quote counts
 #: only when whitespace or the end of the line follows it, which is the CIF rule
@@ -133,6 +159,7 @@ def parse_pdb(pdb_file):
     entity_chains = {}
     entity = None
     waters = []              # held aside; see WATERS
+    seqres = {}              # chain -> residue names, for strand membership
     ph = 7.4
     ph_pattern = re.compile(r'\bPH\b\s*[:\s]\s*([-+]?\d*\.\d+|\d+)')
 
@@ -154,6 +181,9 @@ def parse_pdb(pdb_file):
                     chains = line.split(":")[1].strip().replace(";","").replace(" ","")
                     entity_chains[current_entity] = chains.split(",")
         
+            elif line.startswith("SEQRES"):
+                seqres.setdefault(line[11:12], set()).update(line[19:].split())
+
             elif line.startswith("HEADER"):
                 current_protein.id = line[62:]
                 
@@ -312,6 +342,12 @@ def parse_pdb(pdb_file):
                     id = id.split(".")[0]
                     current_protein.id = id  
     
+    nucleic = {chain: names for chain, names in seqres.items()
+               if names & STANDARD_NUCLEOTIDES}
+    if nucleic:
+        drop_strand_components(
+            current_protein,
+            lambda r: r.resname in nucleic.get(r.chain.id, ()))
     admit_coordinating_waters(current_protein, waters)
     return label_alternates(current_protein), ph
 
@@ -338,6 +374,9 @@ def parse_cif(cif_file):
     current_chain = None
     current_residue = None
     waters = []            # held aside; see WATERS
+    nucleic_entities = set()  # entities that are nucleic-acid chains
+    poly_columns = None       # _entity_poly loop header, while inside it
+    poly_scalar_id = None     # _entity_poly written as scalars (one entity)
     atomsite_block = False # _atom_site. lines
     atominfo_block = False # ATOM        lines
     atom_lines = []
@@ -358,6 +397,36 @@ def parse_cif(cif_file):
 
             if line.startswith("_entry.id"):
                 current_protein.id = line[-4:]
+
+            # _entity_poly.type names each polymer entity's kind, which is how a
+            # strand made only of modified nucleotides - 1KDH's four BRU - is
+            # recognised as nucleic; see STANDARD_NUCLEOTIDES. A loop when there
+            # are several polymer entities, scalars when there is one.
+            if poly_columns is not None:
+                if line.startswith("_entity_poly."):
+                    poly_columns.append(line.split(".", 1)[1])
+                    continue
+                if line.startswith("#") or line.startswith("loop_") or line.startswith("_"):
+                    poly_columns = None
+                elif not line.startswith(";"):
+                    values = cif_tokens(line)
+                    if ("type" in poly_columns and len(values) > poly_columns.index("type")
+                            and values[0].isdigit()):
+                        if "nucleotide" in values[poly_columns.index("type")]:
+                            nucleic_entities.add(values[0])
+                    continue
+            if line.startswith("_entity_poly.entity_id"):
+                values = cif_tokens(line)
+                if len(values) > 1:
+                    poly_scalar_id = values[1]
+                else:
+                    poly_columns = ["entity_id"]
+                continue
+            if line.startswith("_entity_poly.type") and poly_scalar_id is not None:
+                values = cif_tokens(line)
+                if len(values) > 1 and "nucleotide" in values[1]:
+                    nucleic_entities.add(poly_scalar_id)
+                continue
 
             # this title block can definitely be simplified, but there are a lot of edge cases to handle
             # current_protein.set_title() is set before returning the whole object
@@ -506,6 +575,11 @@ def parse_cif(cif_file):
                                        float(line[occupancy_index]),
                                        line[entity_index] if line[entity_index] != "." else chain_id,
                                        element, alt))
+                    elif not is_hetero_line and resname in STANDARD_NUCLEOTIDES:
+                        # Skipped, but it marks its entity as a nucleic-acid
+                        # chain; see STANDARD_NUCLEOTIDES.
+                        nucleic_entities.add(line[entity_index]
+                                             if line[entity_index] != "." else chain_id)
                     continue
 
                 if current_chain is None or current_chain.id != chain_id:  # new chain
@@ -607,7 +681,11 @@ def parse_cif(cif_file):
         
     if ph == 0 or ph > 14:
         ph = 7.4
-            
+
+    if nucleic_entities:
+        drop_strand_components(
+            current_protein,
+            lambda r: r.atoms[0].entity in nucleic_entities)
     admit_coordinating_waters(current_protein, waters)
     return label_alternates(current_protein), ph
 
