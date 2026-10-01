@@ -59,6 +59,11 @@ R1  Charge placement.
     SO4 all do, and marking the buried central atom as charged would emit
     electrostatic contacts from an atom shielded by its own oxygens.
 
+    Bridge clause (2026-10-01): a group oxygen or sulfur bonded to two or more
+    heavy atoms is an ester or anhydride bridge and is excluded too, so ATP
+    charges its seven terminal phosphate oxygens and not O3A, O3B or O5'.
+    No standard residue has such a group, so the gate is unaffected.
+
 R2  Thioether sulfur.
     A sulfur bonded to two carbons is typed acceptor, not hydrophobic.
     NOTE - this one follows COCaDA against the evidence. Both LUNA and
@@ -146,13 +151,23 @@ def _load_factory(fdef=FDEF):
 #: sulfate) and does not itself carry the charge.
 HUB_DEGREE = 3
 
+#: A group oxygen or sulfur bonded to two or more heavy atoms is a BRIDGE - the
+#: ester O5' of a nucleotide, the anhydride O3A/O3B of ATP, the ester oxygen of
+#: a sulfate ester - and does not carry the charge either. LUNA's phosphate and
+#: sulfate SMARTS match those atoms as group members (`P(=O)(-O)(-O)-[O-]`), so
+#: without this they were typed Negative, formed salt bridges, and took the
+#: electrostatic registry's one slot per residue pair from the real anionic
+#: oxygens: 1G78's Arg67 salt-bridged FMN at O5' (3.85 A) instead of O1P (2.63 A).
+BRIDGE_ELEMENTS = ("O", "S")
 
-def _charge_bearing_atoms(mol_h, group_ids, guanidinium_atoms):
+
+def _charge_bearing_atoms(mol_h, group_ids, guanidinium_atoms, bridges=True):
     """R1 - which atoms of an ionizable group actually carry the charge.
 
     Peripheral heteroatoms carry it. Carbons do not, unless the carbon is a
     guanidinium centre. Central hub heteroatoms do not either, so a
-    phosphate or sulfate charges its oxygens rather than its P or S.
+    phosphate or sulfate charges its oxygens rather than its P or S, and nor
+    do ester or anhydride bridges between two heavy atoms.
     """
     group = set(group_ids)
     keep = []
@@ -167,9 +182,17 @@ def _charge_bearing_atoms(mol_h, group_ids, guanidinium_atoms):
             1 for nb in atom.GetNeighbors() if nb.GetIdx() in group)
         if in_group_degree >= HUB_DEGREE:
             continue                              # central hub atom
+        if bridges and atom.GetSymbol() in BRIDGE_ELEMENTS and sum(
+                1 for nb in atom.GetNeighbors() if nb.GetAtomicNum() > 1) >= 2:
+            continue                              # ester / anhydride bridge
         keep.append(idx)
-    # A group that loses every atom would silently drop its charge; fall
-    # back to the raw group rather than emitting nothing.
+    # A group that loses every atom would silently drop its charge. The bridge
+    # clause can do that on its own - an anionic oxygen that also binds a metal
+    # has two heavy neighbours - so first retry without it, which reproduces the
+    # rule as it stood before the clause; only then fall back to the raw group.
+    if not keep and bridges:
+        return _charge_bearing_atoms(mol_h, group_ids, guanidinium_atoms,
+                                     bridges=False)
     return keep or list(group_ids)
 
 

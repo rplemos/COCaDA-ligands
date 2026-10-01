@@ -141,6 +141,12 @@ def main():
     written = skipped = seen = 0
 
     with open(partial, "a") as out, open(logfile, "a") as log:
+        # The environment, so a later rebuild that differs can be told apart
+        # from drift: the 2026-10-01 rebuild could not say which RDKit the
+        # shipped table came from without archaeology.
+        from rdkit import __version__ as rdkit_version
+        log.write(f"BUILD\t{time.strftime('%Y-%m-%d')}\tRDKit {rdkit_version}, "
+                  f"{os.path.basename(args.ccd)}\n")
         for component in source:
             seen += 1
             if component.id in done:

@@ -36,6 +36,7 @@ REPAIR	267	full sanitisation failed (non-ring atom 6 marked aromatic); retried w
 REPAIR	26E	full sanitisation failed (Explicit valence for atom # 6 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	2FH	removed H1A bonded to O2A (formal charge -1)
 REPAIR	2FH	removed H1D bonded to O1D (formal charge -1)
+REPAIR	2FK	full sanitisation failed (Explicit valence for atom # 0 O, 2, is greater than permitted); retried without kekulisation
 REPAIR	2PT	full sanitisation failed (Explicit valence for atom # 57 Cl, 1, is greater than permitted); retried without kekulisation
 REPAIR	2QZ	full sanitisation failed (Explicit valence for atom # 0 N, 4, is greater than permitted); retried without kekulisation
 REPAIR	31Q	full sanitisation failed (Can't kekulize mol.  Unkekulized atoms: 2 3 4 5 6); retried without kekulisation
@@ -433,6 +434,13 @@ SKIP	D3O	Post-condition Violation
 	RDKIT: 2025.09.1
 	BOOST: 1_85
 
+SKIP	D8U	Post-condition Violation
+	Element 'D' not found
+	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
+	Failed Expression: anum > -1
+	RDKIT: 2025.09.1
+	BOOST: 1_85
+
 REPAIR	DAA	removed HI2 bonded to OI2 (formal charge -1)
 REPAIR	DAA	full sanitisation failed (Explicit valence for atom # 16 Al, 4, is greater than permitted); retried without kekulisation
 REPAIR	DAE	removed HOB2 bonded to OB2 (formal charge -1)
@@ -467,6 +475,13 @@ SKIP	DOD	Post-condition Violation
 REPAIR	DOZ	removed H4 bonded to O4 (formal charge -1)
 REPAIR	DTZ	removed H1 bonded to S1 (formal charge -1)
 REPAIR	DTZ	removed H2 bonded to S2 (formal charge -1)
+SKIP	DUM	Post-condition Violation
+	Element 'X' not found
+	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
+	Failed Expression: anum > -1
+	RDKIT: 2025.09.1
+	BOOST: 1_85
+
 REPAIR	DVG	removed H011 bonded to O01 (formal charge -1)
 REPAIR	DVG	removed H1 bonded to O03 (formal charge -1)
 REPAIR	DVG	removed H3 bonded to O07 (formal charge -1)
@@ -687,6 +702,7 @@ REPAIR	HP5	removed H21 bonded to O1D (formal charge -1)
 REPAIR	HRU	full sanitisation failed (Explicit valence for atom # 3 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	HSL	full sanitisation failed (Explicit valence for atom # 2 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	HUJ	full sanitisation failed (Explicit valence for atom # 32 B, 4, is greater than permitted); retried without kekulisation
+REPAIR	HYD	removed H bonded to O (formal charge -1)
 REPAIR	I2A	removed H95 bonded to O11 (formal charge -1)
 REPAIR	I2A	removed H98 bonded to O01 (formal charge -1)
 REPAIR	I6K	full sanitisation failed (Explicit valence for atom # 6 Cl, 1, is greater than permitted); retried without kekulisation
@@ -860,6 +876,7 @@ REPAIR	O7G	full sanitisation failed (Explicit valence for atom # 0 N, 4, is grea
 REPAIR	O93	full sanitisation failed (Explicit valence for atom # 0 B, 4, is greater than permitted); retried without kekulisation
 REPAIR	ODU	removed H1 bonded to O01 (formal charge -1)
 REPAIR	OFO	removed HO bonded to OH (formal charge -1)
+REPAIR	OH	removed HO bonded to O (formal charge -1)
 REPAIR	OHX	removed HN1 bonded to N1 (formal charge -1)
 REPAIR	OHX	removed HN1A bonded to N1 (formal charge -1)
 REPAIR	OHX	removed HN2 bonded to N2 (formal charge -1)
@@ -1064,6 +1081,13 @@ REPAIR	UFW	full sanitisation failed (Explicit valence for atom # 84 Cl, 1, is gr
 REPAIR	UI8	full sanitisation failed (Explicit valence for atom # 3 B, 4, is greater than permitted); retried without kekulisation
 REPAIR	UJR	full sanitisation failed (Explicit valence for atom # 7 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	ULU	full sanitisation failed (Explicit valence for atom # 47 N, 4, is greater than permitted); retried without kekulisation
+SKIP	UNX	Post-condition Violation
+	Element 'X' not found
+	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
+	Failed Expression: anum > -1
+	RDKIT: 2025.09.1
+	BOOST: 1_85
+
 REPAIR	UO3	full sanitisation failed (Can't kekulize mol.  Unkekulized atoms: 5 6 7 8 10); retried without kekulisation
 REPAIR	UTX	full sanitisation failed (Explicit valence for atom # 5 B, 6, is greater than permitted); retried without kekulisation
 REPAIR	UVC	removed HOV1 bonded to O1V (formal charge -1)
@@ -1176,143 +1200,3 @@ REPAIR	ZXF	removed H12 bonded to O1 (formal charge -1)
 REPAIR	ZXK	full sanitisation failed (Explicit valence for atom # 1 C, 4, is greater than permitted); retried without kekulisation
 REPAIR	ZXO	full sanitisation failed (Explicit valence for atom # 1 C, 4, is greater than permitted); retried without kekulisation
 REPAIR	ZZU	full sanitisation failed (Explicit valence for atom # 1 C, 5, is greater than permitted); retried without kekulisation
-SKIP	ASX	Post-condition Violation
-	Element 'X' not found
-	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
-	Failed Expression: anum > -1
-	RDKIT: 2026.03.5
-	BOOST: 1_85
-
-SKIP	D3O	Post-condition Violation
-	Element 'D' not found
-	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
-	Failed Expression: anum > -1
-	RDKIT: 2026.03.5
-	BOOST: 1_85
-
-SKIP	D8U	Post-condition Violation
-	Element 'D' not found
-	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
-	Failed Expression: anum > -1
-	RDKIT: 2026.03.5
-	BOOST: 1_85
-
-SKIP	DOD	Post-condition Violation
-	Element 'D' not found
-	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
-	Failed Expression: anum > -1
-	RDKIT: 2026.03.5
-	BOOST: 1_85
-
-SKIP	DUM	Post-condition Violation
-	Element 'X' not found
-	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
-	Failed Expression: anum > -1
-	RDKIT: 2026.03.5
-	BOOST: 1_85
-
-SKIP	GLX	Post-condition Violation
-	Element 'X' not found
-	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
-	Failed Expression: anum > -1
-	RDKIT: 2026.03.5
-	BOOST: 1_85
-
-SKIP	ND4	Post-condition Violation
-	Element 'D' not found
-	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
-	Failed Expression: anum > -1
-	RDKIT: 2026.03.5
-	BOOST: 1_85
-
-SKIP	SPW	Post-condition Violation
-	Element 'D' not found
-	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
-	Failed Expression: anum > -1
-	RDKIT: 2026.03.5
-	BOOST: 1_85
-
-SKIP	TSD	Post-condition Violation
-	Element 'D' not found
-	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
-	Failed Expression: anum > -1
-	RDKIT: 2026.03.5
-	BOOST: 1_85
-
-SKIP	UNX	Post-condition Violation
-	Element 'X' not found
-	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
-	Failed Expression: anum > -1
-	RDKIT: 2026.03.5
-	BOOST: 1_85
-
-SKIP	ASX	Post-condition Violation
-	Element 'X' not found
-	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
-	Failed Expression: anum > -1
-	RDKIT: 2026.03.5
-	BOOST: 1_85
-
-SKIP	D3O	Post-condition Violation
-	Element 'D' not found
-	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
-	Failed Expression: anum > -1
-	RDKIT: 2026.03.5
-	BOOST: 1_85
-
-SKIP	D8U	Post-condition Violation
-	Element 'D' not found
-	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
-	Failed Expression: anum > -1
-	RDKIT: 2026.03.5
-	BOOST: 1_85
-
-SKIP	DOD	Post-condition Violation
-	Element 'D' not found
-	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
-	Failed Expression: anum > -1
-	RDKIT: 2026.03.5
-	BOOST: 1_85
-
-SKIP	DUM	Post-condition Violation
-	Element 'X' not found
-	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
-	Failed Expression: anum > -1
-	RDKIT: 2026.03.5
-	BOOST: 1_85
-
-SKIP	GLX	Post-condition Violation
-	Element 'X' not found
-	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
-	Failed Expression: anum > -1
-	RDKIT: 2026.03.5
-	BOOST: 1_85
-
-SKIP	ND4	Post-condition Violation
-	Element 'D' not found
-	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
-	Failed Expression: anum > -1
-	RDKIT: 2026.03.5
-	BOOST: 1_85
-
-SKIP	SPW	Post-condition Violation
-	Element 'D' not found
-	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
-	Failed Expression: anum > -1
-	RDKIT: 2026.03.5
-	BOOST: 1_85
-
-SKIP	TSD	Post-condition Violation
-	Element 'D' not found
-	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
-	Failed Expression: anum > -1
-	RDKIT: 2026.03.5
-	BOOST: 1_85
-
-SKIP	UNX	Post-condition Violation
-	Element 'X' not found
-	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
-	Failed Expression: anum > -1
-	RDKIT: 2026.03.5
-	BOOST: 1_85
-
