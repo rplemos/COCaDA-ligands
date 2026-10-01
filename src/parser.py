@@ -59,6 +59,30 @@ HETERO_AS_STANDARD = {
 }
 
 
+#: One mmCIF value: single-quoted, double-quoted or bare. A closing quote counts
+#: only when whitespace or the end of the line follows it, which is the CIF rule
+#: and the reason `"C1'"` is one value holding a prime rather than two.
+_CIF_TOKEN = re.compile(r"""'(.*?)'(?=\s|$)|"(.*?)"(?=\s|$)|(\S+)""")
+
+
+def cif_tokens(line):
+    """Split one mmCIF data line into its values, removing the quotes.
+
+    mmCIF quotes any value that contains a quote character, so every atom name
+    carrying a prime is written `"C1'"`, `"O5'"`. A plain whitespace split kept
+    the quotes as part of the name; the generated table holds `C1'`, so the
+    lookup failed and every such atom formed no contacts at all - the ribose of
+    ATP, NAD, FAD, SAH and every nucleotide cofactor or modified nucleotide.
+    PDB format has no quoting, so the two formats disagreed on the same entry.
+
+    Most lines carry no quote, and they keep the plain split, which is the
+    fast path the parser has always used.
+    """
+    if '"' not in line and "'" not in line:
+        return line.split()
+    return [match.group(match.lastindex) for match in _CIF_TOKEN.finditer(line)]
+
+
 def element_of(atomname, explicit=None):
     """Best available element symbol for an atom.
 
@@ -406,8 +430,8 @@ def parse_cif(cif_file):
                 
             if (line.startswith("ATOM") or line.startswith("HETATM")) and atominfo_block:
                 is_hetero_line = line.startswith("HETATM")
-                line = line.split()
-                
+                line = cif_tokens(line)
+
                 # Hydrogens are excluded everywhere; the old N/C/O/S allowlist
                 # is not applied to HETATM records, which is what previously
                 # discarded every metal, phosphorus and halogen in a structure.
