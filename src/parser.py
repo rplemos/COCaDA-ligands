@@ -617,8 +617,9 @@ def build_hetero_rings(residue, ring_table):
 
     Ring membership comes from the generated table, which derives it from the
     Chemical Component Dictionary - structure files carry no connectivity, so
-    ring perception is impossible at runtime. Fused rings were already merged
-    when the table was generated, so each entry here is one plane.
+    ring perception is impossible at runtime. Each entry is one five- or
+    six-membered ring; fused systems are deliberately NOT merged, so heme gives
+    four pyrrole planes rather than one porphyrin (F5 in docs/DECISIONS.md).
 
     Returns a list of (centroid Atom, normal vector). Incomplete rings are
     skipped: a partially resolved ligand has no meaningful plane.

@@ -14,11 +14,14 @@ class ProcessingContext:
     Attributes:
         core (str or None): The core selection for processing. Defaults to None.
         output (str or None): The output file path or identifier. Defaults to None.
-        region (bool): Whether to process region-specific data. Defaults to False.
-        interface (bool): Whether to process interface-related data. Defaults to False.
+        region (list or None): Residue numbers to restrict detection to. Defaults to None.
+        chains (list or None): Chain ids to restrict detection to. Defaults to None,
+            meaning every chain. It used to default to False, which
+            contact_detection iterated and crashed on.
+        interface (str or None): Path to an interface residue list. Defaults to None.
     """
 
-    def __init__(self, distances, core=None, output=None, region=False, chains=False, interface=False, modified_distances=False, epsilon=0, ph=7.4, silent=False, uncertainty_flags=None, interchain=False, web=False):
+    def __init__(self, distances, core=None, output=None, region=None, chains=None, interface=None, modified_distances=False, epsilon=0, ph=7.4, silent=False, uncertainty_flags=None, interchain=False, web=False):
         self.core = core
         self.output = output
         self.region = region
@@ -161,9 +164,10 @@ class Residue:
         # Aromatic ring systems available for stacking, as a list of
         # (centroid Atom, normal vector) pairs. A standard aromatic residue has
         # exactly one, which keeps its behaviour identical to before. Hetero
-        # components can have several - NAD has two - and a fused set counts as
-        # one plane, so heme is a single 20-atom porphyrin rather than four
-        # pyrroles. Populated by contacts.set_anchors().
+        # components can have several, one per five- or six-membered ring - NAD
+        # has three, and heme four pyrroles, because the centroid of a fused
+        # system sits too far from its own edges for the stacking window (F5
+        # in docs/DECISIONS.md). Populated by contacts.set_anchors().
         self.rings = []
 
         # Pruning anchor. Standard residues use their alpha carbon and the
