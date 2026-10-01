@@ -58,6 +58,17 @@ HETERO_AS_STANDARD = {
     'MSE': 'MET',
 }
 
+# ... and the atoms that carry a different name in the modified residue. Mapping
+# MSE onto MET made its backbone and carbons Met atoms, but its selenium is
+# deposited as SE where Met has SD, and `M:SE` has no entry in the curated
+# table - so the one atom that distinguishes the residue formed no contacts.
+# Renamed to SD, it is typed as the thioether it substitutes for (acceptor) and
+# reported as Met, consistently with the residue name, which already prints as
+# M. The element stays SE: nothing in contact typing reads it for this atom.
+STANDARD_ATOM_NAMES = {
+    'MSE': {'SE': 'SD'},
+}
+
 
 #: One mmCIF value: single-quoted, double-quoted or bare. A closing quote counts
 #: only when whitespace or the end of the line follows it, which is the CIF rule
@@ -182,6 +193,7 @@ def parse_pdb(pdb_file):
                     resname = "HIS"
 
                 # modified residues that are chemically standard amino acids
+                renames = STANDARD_ATOM_NAMES.get(resname)
                 resname = HETERO_AS_STANDARD.get(resname, resname)
 
                 if resname in residue_mapping:
@@ -232,6 +244,8 @@ def parse_pdb(pdb_file):
                                                                 
                 atomname = line[12:16].replace(" ", "")
                 element = element_of(atomname, line[76:78] if len(line) >= 78 else None)
+                if renames:
+                    atomname = renames.get(atomname, atomname)   # MSE SE -> SD
 
                 # OXT terminates a polypeptide, but it is also a legitimate atom
                 # name inside some components (acetate, for one), so the rule is
@@ -473,6 +487,7 @@ def parse_cif(cif_file):
                     resname = "HIS" 
 
                 # modified residues that are chemically standard amino acids
+                renames = STANDARD_ATOM_NAMES.get(resname)
                 resname = HETERO_AS_STANDARD.get(resname, resname)
 
                 if resname in residue_mapping:
@@ -521,6 +536,8 @@ def parse_cif(cif_file):
                                               False, None, is_hetero, icode)
                                                                 
                 atomname = line[atomname_index]
+                if renames:
+                    atomname = renames.get(atomname, atomname)   # MSE SE -> SD
                 # OXT is a legitimate atom name inside some components, so the
                 # terminal-oxygen rule applies to standard residues only.
                 if atomname == "OXT" and not is_hetero:
