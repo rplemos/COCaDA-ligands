@@ -212,6 +212,8 @@ def add_standard_ring(residue):
 # entity, so a residue is in a strand when its entity also holds standard
 # nucleotides. PDB format shares chain letters between polymer and ligands, so
 # there it is a residue of a nucleic chain that SEQRES lists as part of it.
+# A standard nucleotide is skipped whatever its record type (D35): a model may
+# write its DNA as HETATM, without declaring a nucleic entity.
 STANDARD_NUCLEOTIDES = {'A', 'C', 'G', 'U', 'I', 'N',
                         'DA', 'DC', 'DG', 'DT', 'DU', 'DI', 'DN'}
 
@@ -399,6 +401,12 @@ def parse_pdb(pdb_file, all_altlocs=False, min_plddt=None):
             line = line.strip()
             
             if line == "ENDMDL":
+                # Store the residue in progress first (D34): nothing after the
+                # break would, and it is the last residue of model 1 - often
+                # the last ligand. D7 fixed the same thing in parse_cif.
+                if current_residue is not None and len(current_residue.atoms) >= 1:
+                    current_chain.residues.append(current_residue)
+                    current_residue = None
                 break
             
             # for interface checking
@@ -462,7 +470,8 @@ def parse_pdb(pdb_file, all_altlocs=False, min_plddt=None):
                 if resname in residue_mapping:
                     resname = residue_mapping[resname]   # one-letter code
                     is_hetero = False
-                elif force_field or (is_hetero_line and resname not in SKIP_HETERO):
+                elif force_field or (is_hetero_line and resname not in SKIP_HETERO
+                                     and resname not in STANDARD_NUCLEOTIDES):
                     is_hetero = True                     # keep the component id
                 else:
                     if is_hetero_line and resname in WATERS:
@@ -580,11 +589,16 @@ def parse_pdb(pdb_file, all_altlocs=False, min_plddt=None):
             elif line.startswith("END"):
                 if current_residue is not None and len(current_residue.atoms) >= 1:
                     current_chain.residues.append(current_residue) # appends the last residue  
+                    current_residue = None
                 # Handling cases where there is no ID
                 if current_protein.id is None:
                     id = str(pdb_file).split("/")[-1]
                     id = id.split(".")[0]
                     current_protein.id = id  
+
+        # A file may simply stop, with no END (D34).
+        if current_residue is not None and len(current_residue.atoms) >= 1:
+            current_chain.residues.append(current_residue)
     
     native_force_field_residues(current_protein)
     if min_plddt is not None:
@@ -851,7 +865,8 @@ def parse_cif(cif_file, all_altlocs=False, min_plddt=None):
                 if resname in residue_mapping:
                     resname = residue_mapping[resname]   # one-letter code
                     is_hetero = False
-                elif force_field or (is_hetero_line and resname not in SKIP_HETERO):
+                elif force_field or (is_hetero_line and resname not in SKIP_HETERO
+                                     and resname not in STANDARD_NUCLEOTIDES):
                     is_hetero = True                     # keep the component id
                 else:
                     if is_hetero_line and resname in WATERS:
@@ -864,9 +879,10 @@ def parse_cif(cif_file, all_altlocs=False, min_plddt=None):
                                        float(line[occupancy_index]),
                                        line[entity_index] if line[entity_index] != "." else chain_id,
                                        element, alt))
-                    elif not is_hetero_line and resname in STANDARD_NUCLEOTIDES:
+                    elif resname in STANDARD_NUCLEOTIDES:
                         # Skipped, but it marks its entity as a nucleic-acid
-                        # chain; see STANDARD_NUCLEOTIDES.
+                        # chain; see STANDARD_NUCLEOTIDES. HETATM too (D35): a
+                        # model may write its DNA so, declaring no nucleic entity.
                         nucleic_entities.add(line[entity_index]
                                              if line[entity_index] != "." else chain_id)
                     continue
@@ -969,10 +985,20 @@ def parse_cif(cif_file, all_altlocs=False, min_plddt=None):
                             normal_vector = calc_normal_vector(ring_atoms)
                             current_residue.normal_vector = normal_vector
 
-            elif atominfo_block and line == "#":
+            # The atom list ends at the '#' closing the loop - or, as legally
+            # and in every ModelArchive model, at the next category, loop or
+            # data block, or at the end of the file (D34). The residue in
+            # progress is stored in every case; it used to be lost unless a
+            # '#' came, and with it the file's last ligand.
+            elif atominfo_block and (line.startswith("#") or line.startswith("_")
+                                     or line.startswith("loop_") or line.startswith("data_")):
                 if current_residue is not None and len(current_residue.atoms) >= 1:
                     current_chain.residues.append(current_residue) # appends the last residue
+                    current_residue = None
                 atominfo_block = False
+
+        if atominfo_block and current_residue is not None and len(current_residue.atoms) >= 1:
+            current_chain.residues.append(current_residue)
     
     if title is not None:
         current_protein.set_title(title.title().replace("'","").replace('"','').replace(",","."))
