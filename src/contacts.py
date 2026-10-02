@@ -87,6 +87,54 @@ def set_anchors(residues, ceiling, ring_table=None):
             residue.ring = True
 
 
+#: Closer than this, two atoms cannot both be present: no non-covalent contact
+#: is this short, and a covalent bond between two separate components would be
+#: declared by the deposit, not inferred.
+OVERLAP = 1.5
+
+#: Occupancies of two alternatives sum to at most one; the margin absorbs the
+#: rounding of refined occupancies (0.49 + 0.52).
+OCCUPANCY_SUM = 1.05
+
+
+def mutually_exclusive(residues):
+    """Pairs of hetero residues that are alternatives of one another (D26).
+
+    A ligand on a crystallographic two-fold axis is deposited as two
+    half-occupancy orientations, and a biological assembly places both in the
+    same site; a ligand and a partial-occupancy buffer molecule can share a
+    site the same way. The parser's alternate-conformation rule works inside a
+    residue, so nothing knew such residues exclude each other, and the contacts
+    between them - hundreds per site, hydrogen bonds at near-zero distance
+    among them - were 39.8% of all ligand contacts in the TTR assemblies.
+
+    Two hetero residues are alternatives when an atom of one lies within
+    OVERLAP of an atom of the other and their occupancies sum to no more than
+    one. No contact is reported between them; each keeps its contacts with
+    everything else. Amino-acid residues are never considered, so the
+    amino-acid path is untouched. Returns a set of (id(a), id(b)) in the order
+    the residues are listed.
+    """
+    partial = []
+    for residue in residues:
+        if residue.is_hetero and residue.anchor is not None and residue.atoms:
+            occupancy = max(atom.occupancy for atom in residue.atoms)
+            if occupancy < OCCUPANCY_SUM:
+                partial.append((residue, occupancy))
+    pairs = set()
+    for i, (a, occ_a) in enumerate(partial):
+        for b, occ_b in partial[i + 1:]:
+            if occ_a + occ_b > OCCUPANCY_SUM:
+                continue
+            if dist((a.anchor.x, a.anchor.y, a.anchor.z),
+                    (b.anchor.x, b.anchor.y, b.anchor.z)) > a.radius + b.radius + OVERLAP:
+                continue
+            if any(dist((p.x, p.y, p.z), (q.x, q.y, q.z)) < OVERLAP
+                   for p in a.atoms for q in b.atoms):
+                pairs.add((id(a), id(b)))
+    return pairs
+
+
 def contact_detection(protein, context, uncertainty_flags, local_contact_types):
     """
     Detects contacts between atoms in a given protein.
@@ -153,6 +201,7 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
         local_contact_types.update(hetero_types)
 
     set_anchors(residues, ceiling, hetero_rings)
+    exclusive = mutually_exclusive(residues)
 
     if interface:
         with open(interface,"r") as f:
@@ -189,6 +238,8 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
                 # Single-atom entities (metal ions, chloride) reach this branch
                 # too, which the len(atoms) > 1 test below would have excluded.
                 hetero_pair = True
+                if exclusive and (id(residue1), id(residue2)) in exclusive:
+                    continue        # two alternatives of one site (D26)
                 anchor1, anchor2 = residue1.anchor, residue2.anchor
                 if anchor1 is None or anchor2 is None:
                     continue
