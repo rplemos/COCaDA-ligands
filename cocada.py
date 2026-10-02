@@ -23,13 +23,14 @@ def main():
     """
     global_time_start = timer()
     
-    file_list, core, output, region, chains, interface, distances, modified_distances, ph, silent, interchain, web = argparser.cl_parse()
+    file_list, core, output, region, chains, interface, distances, modified_distances, ph, silent, interchain, web, all_altlocs = argparser.cl_parse()
     
     process.log("\n--------------COCaDA----------------\n", silent)
     
     # context object for shared parameters
     context = classes.ProcessingContext(core=core, output=output, region=region, chains=chains, interface=interface, 
-                                        distances=distances, modified_distances=modified_distances, ph=ph, silent=silent, interchain=interchain, web=int(web))
+                                        distances=distances, modified_distances=modified_distances, ph=ph, silent=silent, interchain=interchain, web=int(web),
+                                        all_altlocs=all_altlocs)
 
     if core is not None:  # Set specific core affinity
         process.log("Multicore mode selected.", silent)
@@ -47,6 +48,9 @@ def main():
         
     if interchain:
         process.log(f"Calculating only interchain contacts.", silent)
+
+    if all_altlocs:
+        process.log("Reporting every alternate conformation (Alt1, Alt2 columns).", silent)
                
     if output:
         process.log(f"Generating outputs in '{output}' folder.", silent)

@@ -67,7 +67,7 @@ The code includes a customized parser for both **PDB** and **CIF** files, with s
 
 2. Run COCαDA with the path to your folder or file:
     ```sh
-    python cocada.py -f path_to_files/*.{cif/pdb} [-m [CORES]] [-o [OUTPUT_DIR]] [-r] [-d] [-ph] [-c] [-s] [-inter] [-h]
+    python cocada.py -f path_to_files/*.{cif/pdb} [-m [CORES]] [-o [OUTPUT_DIR]] [-r] [-d] [-ph] [-c] [-s] [-inter] [-alt] [-h]
     ```
 
 ### ⚙️ Parameters
@@ -83,6 +83,7 @@ The code includes a customized parser for both **PDB** and **CIF** files, with s
 | `-c`, `--chains`| **(Optional)** Define only specific chains to be analyzed.<br>• `-c X` = only chain X. <br>• `-c X,Y,Z` = specific multiple chains.|
 | `-s`, `--silent`| **(Optional)** Suppresses non-essential console output. |
 | `-inter`, `--interchain`| **(Optional)** Calculates only interchain contacts. |
+| `-alt`, `--all-altlocs`| **(Optional)** Reports the contacts of every alternate conformation instead of only the highest-occupancy one. Atoms are paired only within one conformer (altloc A with A or with atoms that have none), and two columns, `Alt1` and `Alt2`, are added at the end of each CSV row. |
 | `-h`, `--help` | **(Optional)** Shows help and usage instructions. |
 
 ---

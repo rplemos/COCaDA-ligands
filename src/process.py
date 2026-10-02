@@ -126,7 +126,9 @@ def process_file(file_path, context):
     start_time = timer()
 
     try:
-        parsed_data, ph = parser.parse_pdb(file_path) if file_path.endswith(".pdb") else parser.parse_cif(file_path)
+        all_altlocs = getattr(context, "all_altlocs", False)
+        parsed_data, ph = (parser.parse_pdb(file_path, all_altlocs) if file_path.endswith(".pdb")
+                           else parser.parse_cif(file_path, all_altlocs))
                 
         if context.ph is None:
             uncertainty_flags, local_contact_types = contacts.change_protonation(ph, context.silent)
@@ -198,7 +200,7 @@ def process_result(result, context):
                 info_file = f"{base}/{protein.id}_info.csv"
             
             with open(contacts_file,"w") as f:
-                f.write(contacts.show_contacts(contacts_list))
+                f.write(contacts.show_contacts(contacts_list, getattr(context, "all_altlocs", False)))
                     
             # COCaDA-web exclusive
             if web == 1 or web == 2: # web or database update

@@ -49,6 +49,7 @@ def cl_parse():
         parser.add_argument('-c', '--chains', required=False, nargs='?', help='Define only specific chains to be analyzed. -c A = only one chain. -c A,B,C... = specific multiple chains.')
         parser.add_argument('-s', '--silent', required=False, action='store_true', help='Suppresses non-essential console output.')
         parser.add_argument('-inter', '--interchain', required=False, action='store_true', help='Calculates only interchain contacts.')
+        parser.add_argument('-alt', '--all-altlocs', required=False, action='store_true', help='Report the contacts of every alternate conformation, not only the highest-occupancy one; atoms are paired within one conformer, and two columns (Alt1, Alt2) are added at the end of the CSV.')
         parser.add_argument('-w', '--web', required=False, default=0, help=SUPPRESS) #'Sets outputs to web format. Requires the use of -o flag.'
 
         args = parser.parse_args()
@@ -59,6 +60,7 @@ def cl_parse():
         silent = args.silent
         interchain = args.interchain
         web = args.web
+        all_altlocs = args.all_altlocs
                 
         ncores = cpu_count()
         multi = args.cores
@@ -113,7 +115,7 @@ def cl_parse():
         #traceback.print_exc() 
         exit(1)
         
-    return files, core, output, region, chains, interface, distances, modified_distances, ph, silent, interchain, web
+    return files, core, output, region, chains, interface, distances, modified_distances, ph, silent, interchain, web, all_altlocs
         
         
 def validate_file(value):

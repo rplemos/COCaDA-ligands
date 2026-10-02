@@ -120,6 +120,12 @@ def cif_tokens(line):
     return [match.group(match.lastindex) for match in _CIF_TOKEN.finditer(line)]
 
 
+#: ALTLOCS. By default each atom keeps ONE alternate - the highest occupancy,
+#: the first on a tie (D6). That loses a contact the other conformer makes: in
+#: 4D7B only Thr119 altloc B places OG1 2.52 A from tolcapone's carbonyl, and
+#: the tie keeps A, whose CG2 sits there. `--all-altlocs` keeps every alternate
+#: and reports each conformer's contacts, labelled; the default is unchanged.
+
 #: Identifiers that stand for "no identifier". RCSB writes `_entry.id XXXX` in
 #: every biological-assembly file, and other tools write `?` or `.`; taken as
 #: the structure's id, every such file named its output `XXXX_contacts.csv`
@@ -144,7 +150,7 @@ def element_of(atomname, explicit=None):
     return name[0].upper() if name else ''
 
 
-def parse_pdb(pdb_file):
+def parse_pdb(pdb_file, all_altlocs=False):
     """
     Parses a PDB file to create a Protein object.
 
@@ -315,8 +321,13 @@ def parse_pdb(pdb_file):
                 # The winner is written back in place rather than appended, so
                 # atom ordering is preserved; contacts.py relies on atoms[1]
                 # being the alpha carbon.
+                #
+                # With all_altlocs (--all-altlocs) every alternate is kept
+                # instead, one atom per (name, alternate letter), and the
+                # detector pairs only atoms of one conformer. See ALTLOCS.
                 for index, existing in enumerate(current_residue.atoms):
-                    if existing.atomname == atomname:
+                    if existing.atomname == atomname and (
+                            not all_altlocs or existing.altloc == atom.altloc):
                         if occupancy > existing.occupancy:
                             current_residue.atoms[index] = atom
                         break
@@ -331,7 +342,7 @@ def parse_pdb(pdb_file):
                     all_atoms_have_occupancy_one = all(atom.occupancy == 1 for atom in current_residue.atoms if atom.atomname in allowed)
                     
                     # if ring has only one conformation and the residue is complete (all atoms populated)
-                    if all_atoms_have_occupancy_one and len(current_residue.atoms) == stacking[current_residue.resname][0]:
+                    if all_atoms_have_occupancy_one and len({a.atomname for a in current_residue.atoms}) == stacking[current_residue.resname][0]:
                         ring_atoms = array([[atom.x, atom.y, atom.z] for atom in current_residue.atoms if atom.atomname in stacking[current_residue.resname]])
                         
                         if ring_atoms.any():
@@ -361,7 +372,7 @@ def parse_pdb(pdb_file):
     return label_alternates(current_protein), ph
 
 
-def parse_cif(cif_file):
+def parse_cif(cif_file, all_altlocs=False):
     """
     Parses a .cif file to create a Protein object.
 
@@ -654,8 +665,13 @@ def parse_cif(cif_file):
                 # The winner is written back in place rather than appended, so
                 # atom ordering is preserved; contacts.py relies on atoms[1]
                 # being the alpha carbon.
+                #
+                # With all_altlocs (--all-altlocs) every alternate is kept
+                # instead, one atom per (name, alternate letter), and the
+                # detector pairs only atoms of one conformer. See ALTLOCS.
                 for index, existing in enumerate(current_residue.atoms):
-                    if existing.atomname == atomname:
+                    if existing.atomname == atomname and (
+                            not all_altlocs or existing.altloc == atom.altloc):
                         if occupancy > existing.occupancy:
                             current_residue.atoms[index] = atom
                         break
@@ -670,7 +686,7 @@ def parse_cif(cif_file):
                     all_atoms_have_occupancy_one = all(atom.occupancy == 1 for atom in current_residue.atoms if atom.atomname in allowed)
                     
                     # if ring has only one conformation and the residue is complete (all atoms populated)
-                    if all_atoms_have_occupancy_one and len(current_residue.atoms) == stacking[current_residue.resname][0]:
+                    if all_atoms_have_occupancy_one and len({a.atomname for a in current_residue.atoms}) == stacking[current_residue.resname][0]:
                         ring_atoms = array([[atom.x, atom.y, atom.z] for atom in current_residue.atoms if atom.atomname in stacking[current_residue.resname]])
                         if ring_atoms.any():
                             centroid_atom = centroid(current_residue, ring_atoms, entity)

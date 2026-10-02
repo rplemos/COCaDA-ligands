@@ -21,7 +21,7 @@ class ProcessingContext:
         interface (str or None): Path to an interface residue list. Defaults to None.
     """
 
-    def __init__(self, distances, core=None, output=None, region=None, chains=None, interface=None, modified_distances=False, epsilon=0, ph=7.4, silent=False, uncertainty_flags=None, interchain=False, web=False):
+    def __init__(self, distances, core=None, output=None, region=None, chains=None, interface=None, modified_distances=False, epsilon=0, ph=7.4, silent=False, uncertainty_flags=None, interchain=False, web=False, all_altlocs=False):
         self.core = core
         self.output = output
         self.region = region
@@ -35,6 +35,7 @@ class ProcessingContext:
         self.uncertainty_flags = uncertainty_flags
         self.interchain = interchain
         self.web = web
+        self.all_altlocs = all_altlocs
 
 class Protein:
     """
@@ -305,7 +306,7 @@ class Contact:
     def __init__(self, id1, chain1, residue_num1, residue_name1, atom1, 
                  id2, chain2, residue_num2, residue_name2, atom2, 
                  distance, type, atom_object1, atom_object2, is_uncertain=False,
-                 icode1="", icode2="", alt1="", alt2=""):
+                 icode1="", icode2="", alt1="", alt2="", altloc1="", altloc2=""):
         """
         Initializes a new Contact instance.
         """
@@ -337,6 +338,12 @@ class Contact:
         # position becoming crowded, or ceasing to be, between two runs.
         self.alt1 = alt1 or ""
         self.alt2 = alt2 or ""
+
+        # Alternate-location letter of each ATOM, '' when it has none. Only
+        # meaningful, and only printed, with --all-altlocs, where every
+        # conformer is reported; by default one is kept per atom.
+        self.altloc1 = altloc1 or ""
+        self.altloc2 = altloc2 or ""
 
     @property
     def label1(self):
@@ -377,7 +384,7 @@ class Contact:
         """
         return not (self.hetero1 or self.hetero2)
 
-    def print_text(self):
+    def print_text(self, altlocs=False):
         """
         Generates a formatted string describing the contact between two atoms.
 
@@ -411,7 +418,7 @@ class Contact:
             display_resname(self.residue_name2, self.hetero2), self.atom2,
             self.distance, map_type[self.type],
             "y" if self.is_amino_pair else "n",
-        ))
+        ) + ((self.altloc1, self.altloc2) if altlocs else ()))
 
         # verbose
         # return (f"{self.chain1}-{self.residue_num1}{self.residue_name1}:{self.atom1} and "

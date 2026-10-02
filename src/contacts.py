@@ -149,6 +149,9 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
     region, chains, interface, interchain, argument_distances, modified_distances, epsilon = (
         context.region, context.chains, context.interface, context.interchain, context.distances, context.modified_distances, context.epsilon
     )
+    # --all-altlocs: every alternate conformation was kept by the parser, and
+    # atoms are paired only within one conformer (see parser.ALTLOCS).
+    all_altlocs = getattr(context, "all_altlocs", False)
 
     prot_chains = []
     for chain in protein.chains:
@@ -337,6 +340,12 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
                     if hetero_pair and dist((atom2.x, atom2.y, atom2.z),
                                             (anchor1.x, anchor1.y, anchor1.z)) > reach2:
                         continue
+                    # One conformer at a time: altloc A pairs with A or with
+                    # an atom that has no alternate, never with B - the PDB's
+                    # convention, and what keeps two states from meeting.
+                    if (all_altlocs and atom1.altloc and atom2.altloc
+                            and atom1.altloc != atom2.altloc):
+                        continue
                     
                     if interface:
                         residue_interface_key = f"{chain1},{residue1.resnum},{residue1.resname}"
@@ -409,12 +418,17 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
                                     if not conditions.contact_conditions[contact_type](props1, props2):
                                         continue
                                     
-                                    stored_types = contact_registry[pair_key] # empty set if pair_key is new
+                                    # The registry admits one salt bridge, attractive and
+                                    # repulsive per residue pair - per conformer, when
+                                    # every alternate is reported, so B keeps its own.
+                                    reg_key = (pair_key + (atom1.altloc or atom2.altloc,)
+                                               if all_altlocs else pair_key)
+                                    stored_types = contact_registry[reg_key] # empty set if reg_key is new
                                                                                             
                                     if contact_type == 'salt_bridge':
                                         if 'attractive' in stored_types:
                                             # filters attractives out in-place (salt_bridge has priority)
-                                            contacts_by_pair[pair_key] = [c for c in contacts_by_pair[pair_key] if c['type'] != 'attractive']
+                                            contacts_by_pair[reg_key] = [c for c in contacts_by_pair[reg_key] if c['type'] != 'attractive']
                                             stored_types.remove('attractive')
                                         if 'salt_bridge' in stored_types:
                                             continue # skip adding duplicate
@@ -430,7 +444,7 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
                                     else:
                                         stored_types.add(contact_type)
                                     
-                                    contacts_by_pair[pair_key].append({
+                                    contacts_by_pair[reg_key].append({
                                         'protein_id': protein.id,
                                         'chain1': chain1,
                                         'resnum1': residue1.resnum,
@@ -449,6 +463,8 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
                                         'atom1': atom1,
                                         'atom2': atom2,
                                         'is_uncertain':(name1 in uncertainty_flags or name2 in uncertainty_flags) and contact_type in ['attractive', 'repulsive', 'salt_bridge'],
+                                        'altloc1': atom1.altloc,
+                                        'altloc2': atom2.altloc,
                                     })
     
     contacts, count_types = create_contacts(contacts_by_pair)
@@ -456,7 +472,7 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
     return contacts, interface_res, count_types
 
 
-def show_contacts(contacts):
+def show_contacts(contacts, altlocs=False):
     """
     Formats and summarizes contact information to be outputted to a file. Only works with the -o flag.
 
@@ -469,9 +485,12 @@ def show_contacts(contacts):
     
     output = []
     
-    output.append("Chain1,Res1,ResName1,Atom1,Chain2,Res2,ResName2,Atom2,Distance,Type,AA-AA")
+    header = "Chain1,Res1,ResName1,Atom1,Chain2,Res2,ResName2,Atom2,Distance,Type,AA-AA"
+    # Two columns at the right-hand end, and only with --all-altlocs, so the
+    # default output is byte-identical and left-indexing readers keep working.
+    output.append(header + (",Alt1,Alt2" if altlocs else ""))
     for contact in contacts:
-        output.append(contact.print_text())
+        output.append(contact.print_text(altlocs))
         
     return "\n".join(output) # returns as a string to be written directly into the file
 
@@ -667,6 +686,8 @@ def create_contacts(contacts_by_pair):
                 icode2=entry.get('icode2', ''),
                 alt1=entry.get('alt1', ''),
                 alt2=entry.get('alt2', ''),
+                altloc1=entry.get('altloc1', ''),
+                altloc2=entry.get('altloc2', ''),
             )
             contacts.append(contact)
 
