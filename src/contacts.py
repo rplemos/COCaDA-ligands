@@ -182,6 +182,7 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
     # Global ceiling on any contact distance: the atom-loop gate, the hetero
     # bound, and the reach the Ca table has to be widened by.
     ceiling = max(hi for _, hi in categories.values())
+    disulfide_range = categories['disulfide_bond']
 
     # The Ca table was mined for contacts up to 6 A. A wider window needs every
     # entry widened by the excess, epsilon - once, as the paper describes. It
@@ -381,6 +382,16 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
                                 if (contact_type == 'hydrogen_bond'
                                         and chain1 == chain2
                                         and abs(residue2.resnum - residue1.resnum) <= 3):
+                                    continue
+
+                                # D29: a disulfide is one interaction. Its two SG
+                                # atoms are also donor and acceptor, so the same
+                                # pair was written as a hydrogen bond besides DS -
+                                # in published v1.6 as well, and only where the
+                                # deposited pH left SG both (within 2 of pKa 8.3).
+                                if (contact_type == 'hydrogen_bond'
+                                        and name1 == 'C:SG' and name2 == 'C:SG'
+                                        and disulfide_range[0] <= distance <= disulfide_range[1]):
                                     continue
 
                                 if distance_range[0] <= distance <= distance_range[1]: # fits the range
