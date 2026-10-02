@@ -175,7 +175,12 @@ def covalent_exclusions(residues, links):
     if not links:
         return {}
     from src.conditions import METALS
-    by_key = {residue.key: residue for residue in residues}
+    by_key = {}
+    for residue in residues:
+        by_key[residue.key] = residue
+        source = getattr(residue, "source_name", None)   # a force-field name (D32)
+        if source:
+            by_key[(residue.chain.id, residue.resnum, residue.icode, source)] = residue
     pairs = {}
     for (key1, name1), (key2, name2) in links:
         first, second = by_key.get(key1), by_key.get(key2)

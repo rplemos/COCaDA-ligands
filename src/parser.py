@@ -69,6 +69,113 @@ STANDARD_ATOM_NAMES = {
     'MSE': {'SE': 'SD'},
 }
 
+# FORCE-FIELD RESIDUE NAMES (D32). Simulation and modelling pipelines name a
+# residue's protonation state in its residue name - Amber's HID, HIE, HIP, ASH,
+# GLH, LYN, CYX, CYM; CHARMM's HSD, HSE, HSP, LSN, ASPP, GLUP; GROMACS's HISD,
+# HISE, HISH, ASPH, GLUH, LYSH, CYS2. Most of them are ALSO Chemical Component
+# Dictionary ids, of unrelated molecules (ASH a kinase inhibitor, HIP
+# ND1-phosphonohistidine, HSE homoserine, CYX a phosphonic acid), and deposited
+# entries use them as such - HIP inside 18 entries' chains, HSE inside 8 and as
+# a ligand in 16.
+#
+# So a residue is read as its native amino acid only when every one of its atoms
+# is an atom of that amino acid, CA included. The Amber ASH of a model passes; a
+# deposited phosphohistidine HIP (it has a P), homoserine HSE (C3, O3), S-methyl-
+# cysteine CYM (CD) or lysine amide LYN (NT) does not, and stays the component it
+# is. Chain membership is not required: models write caps, and sometimes
+# residues, as separate non-polymer entities. Decided per
+# residue, once parsing is done (native_force_field_residues). The protonation
+# the name encodes is not kept: COCaDA assigns it from the pH, as for any residue.
+FORCE_FIELD_NAMES = {
+    'HID': 'HIS', 'HIE': 'HIS', 'HIP': 'HIS', 'ASH': 'ASP', 'GLH': 'GLU',
+    'LYN': 'LYS', 'CYX': 'CYS', 'CYM': 'CYS',                          # Amber
+    'HSD': 'HIS', 'HSE': 'HIS', 'HSP': 'HIS', 'LSN': 'LYS', 'ASPP': 'ASP',
+    'GLUP': 'GLU',                                                      # CHARMM
+    'HISD': 'HIS', 'HISE': 'HIS', 'HISH': 'HIS', 'ASPH': 'ASP', 'GLUH': 'GLU',
+    'LYSH': 'LYS', 'CYS2': 'CYS',                                       # GROMACS
+}
+
+# ... and the terminal caps, which stay components but are named, or their atoms
+# named, as the Chemical Component Dictionary has them: Amber's NMA is the CCD's
+# NME (methylamine; NMA there is a PLP derivative), whose carbon the CCD calls C
+# where Amber writes CH3. ACE needs no renaming; it is listed so that a cap
+# written as an ATOM record is kept rather than dropped.
+FORCE_FIELD_CAPS = {
+    'NMA': ('NME', {'N': 'N', 'C': 'C', 'CA': 'C', 'CH3': 'C'}),
+    'NME': ('NME', {'N': 'N', 'C': 'C', 'CA': 'C', 'CH3': 'C'}),
+    'ACE': ('ACE', {'C': 'C', 'O': 'O', 'CH3': 'CH3'}),
+}
+
+
+def native_force_field_residues(protein):
+    """Read force-field-named residues as what they are (D32).
+
+    A residue the parser kept because of its name (see FORCE_FIELD_NAMES) is
+    converted when all its atoms belong to the native residue; otherwise it is treated as any residue of that name: a
+    HETATM component stays one, an ATOM record with a non-standard name is
+    dropped, as it always was. A converted amino acid is kept even when HETATM
+    are suppressed, as MSE is, since it is an amino acid either way.
+    """
+    from src.conditions import contact_types
+    native_atoms = {}
+    for key in contact_types:
+        code, atom = key.split(":")
+        native_atoms.setdefault(code, set()).add(atom)
+
+    for chain in protein.chains:
+        kept = []
+        for residue in chain.residues:
+            info = getattr(residue, "force_field", None)
+            if info is None:
+                kept.append(residue)
+                continue
+            atom_record = info
+            names = {a.atomname for a in residue.atoms}
+            source = residue.resname
+            if source in FORCE_FIELD_NAMES:
+                code = residue_mapping[FORCE_FIELD_NAMES[source]]
+                if "CA" in names and names <= native_atoms[code] | {"OXT"}:
+                    residue.source_name = source
+                    residue.resname = code
+                    residue.is_hetero = False
+                    residue.atoms[:] = [a for a in residue.atoms if a.atomname != "OXT"]
+                    add_standard_ring(residue)
+                    kept.append(residue)
+                    continue
+            elif source in FORCE_FIELD_CAPS:
+                cap, renames = FORCE_FIELD_CAPS[source]
+                if names <= set(renames):
+                    if cap in SKIP_HETERO:
+                        continue            # components suppressed (validator)
+                    residue.source_name = source
+                    residue.resname = cap
+                    for atom in residue.atoms:
+                        atom.atomname = renames[atom.atomname]
+                    kept.append(residue)
+                    continue
+            if atom_record or source in SKIP_HETERO:
+                continue                    # as any residue of that name
+            kept.append(residue)
+        chain.residues = kept
+    protein.chains = [chain for chain in protein.chains if chain.residues]
+    return protein
+
+
+def add_standard_ring(residue):
+    """The ring centroid of a standard aromatic residue, as the parser adds it
+    while reading - for a residue that became standard after reading."""
+    spec = stacking.get(residue.resname)
+    if not spec or residue.ring:
+        return
+    allowed = spec[1:]
+    if (all(a.occupancy == 1 for a in residue.atoms if a.atomname in allowed)
+            and len({a.atomname for a in residue.atoms}) == spec[0]):
+        ring_atoms = array([[a.x, a.y, a.z] for a in residue.atoms if a.atomname in spec])
+        if ring_atoms.any():
+            residue.atoms.append(centroid(residue, ring_atoms, residue.atoms[0].entity))
+            residue.ring = True
+            residue.normal_vector = calc_normal_vector(ring_atoms)
+
 # Nucleic acids are deferred: their values are to be imported from Pro-RNA and
 # RNApedia, not re-derived here. The standard nucleotides are ATOM records and
 # were always skipped - but a MODIFIED nucleotide in the same strand (5CM, BRU,
@@ -174,8 +281,6 @@ def link_partner(chain, resnum, icode, resname, atomname):
     except (TypeError, ValueError):
         return None
     icode = "" if icode in (None, "?", ".") else icode.strip()
-    if resname in ("HID", "HIE", "HSP", "HSD", "HSE"):
-        resname = "HIS"
     atomname = STANDARD_ATOM_NAMES.get(resname, {}).get(atomname, atomname)
     resname = HETERO_AS_STANDARD.get(resname, resname)
     resname = residue_mapping.get(resname, resname)
@@ -324,9 +429,8 @@ def parse_pdb(pdb_file, all_altlocs=False):
                 #     continue
                 resname = line[17:20].strip()
                 
-                # alternative names for protonated histidines
-                if resname in ["HID", "HIE", "HSP", "HSD", "HSE"]: 
-                    resname = "HIS"
+                # force-field names: kept, decided per residue at the end (D32)
+                force_field = resname in FORCE_FIELD_NAMES or resname in FORCE_FIELD_CAPS
 
                 # modified residues that are chemically standard amino acids
                 renames = STANDARD_ATOM_NAMES.get(resname)
@@ -335,7 +439,7 @@ def parse_pdb(pdb_file, all_altlocs=False):
                 if resname in residue_mapping:
                     resname = residue_mapping[resname]   # one-letter code
                     is_hetero = False
-                elif is_hetero_line and resname not in SKIP_HETERO:
+                elif force_field or (is_hetero_line and resname not in SKIP_HETERO):
                     is_hetero = True                     # keep the component id
                 else:
                     if is_hetero_line and resname in WATERS:
@@ -377,6 +481,10 @@ def parse_pdb(pdb_file, all_altlocs=False):
                     atoms = []
                     current_residue = Residue(resnum, resname, atoms, current_chain,
                                               False, None, is_hetero, icode)
+
+                if force_field:   # whether every record of it is ATOM (D32)
+                    current_residue.force_field = (getattr(current_residue, "force_field", True)
+                                                   and not is_hetero_line)
                                                                 
                 atomname = line[12:16].replace(" ", "")
                 element = element_of(atomname, line[76:78] if len(line) >= 78 else None)
@@ -453,6 +561,7 @@ def parse_pdb(pdb_file, all_altlocs=False):
                     id = id.split(".")[0]
                     current_protein.id = id  
     
+    native_force_field_residues(current_protein)
     nucleic = {chain: names for chain, names in seqres.items()
                if names & STANDARD_NUCLEOTIDES}
     if nucleic:
@@ -703,9 +812,8 @@ def parse_cif(cif_file, all_altlocs=False):
                 #     continue
                 resname = line[resname_index]
 
-                # alternative names for protonated histidines
-                if resname in ["HID", "HIE", "HSP", "HSD", "HSE"]: 
-                    resname = "HIS" 
+                # force-field names: kept, decided per residue at the end (D32)
+                force_field = resname in FORCE_FIELD_NAMES or resname in FORCE_FIELD_CAPS
 
                 # modified residues that are chemically standard amino acids
                 renames = STANDARD_ATOM_NAMES.get(resname)
@@ -714,7 +822,7 @@ def parse_cif(cif_file, all_altlocs=False):
                 if resname in residue_mapping:
                     resname = residue_mapping[resname]   # one-letter code
                     is_hetero = False
-                elif is_hetero_line and resname not in SKIP_HETERO:
+                elif force_field or (is_hetero_line and resname not in SKIP_HETERO):
                     is_hetero = True                     # keep the component id
                 else:
                     if is_hetero_line and resname in WATERS:
@@ -760,6 +868,10 @@ def parse_cif(cif_file, all_altlocs=False):
                     atoms = []
                     current_residue = Residue(resnum, resname, atoms, current_chain,
                                               False, None, is_hetero, icode)
+
+                if force_field:   # whether every record of it is ATOM (D32)
+                    current_residue.force_field = (getattr(current_residue, "force_field", True)
+                                                   and not is_hetero_line)
                                                                 
                 atomname = line[atomname_index]
                 if renames:
@@ -839,6 +951,7 @@ def parse_cif(cif_file, all_altlocs=False):
     if ph == 0 or ph > 14:
         ph = 7.4
 
+    native_force_field_residues(current_protein)
     if nucleic_entities:
         drop_strand_components(
             current_protein,
