@@ -57,6 +57,10 @@ class Protein:
         self.id = None
         self.chains = []
 
+        # Covalent links the file declares between residues (_struct_conn,
+        # LINK), as ((key, atom name), (key, atom name)); see parser.py.
+        self.links = []
+
     def set_title(self, title):
         """
         Sets the title of the protein. If a title is already set, appends the new title.

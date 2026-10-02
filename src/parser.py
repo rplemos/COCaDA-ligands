@@ -134,6 +134,72 @@ def cif_tokens(line):
 PLACEHOLDER_IDS = {"XXXX", "?", ".", ""}
 
 
+#: COVALENT LINKS. Structure files carry no bonds inside a residue, but the
+#: deposit declares the ones BETWEEN residues - `_struct_conn` in mmCIF, `LINK`
+#: in PDB format: an N-glycosylation, a heme c thioether, a covalent inhibitor.
+#: Atoms one or two bonds apart across such a link sit 1.3-2.5 A from each
+#: other, and COCaDA used to report them as contacts (2GUY: Asn197 ND2 - NAG O5,
+#: 2.39 A, "hydrogen bond"). The parser records the covalent links; contacts.py
+#: suppresses the pairs around each one (D30). Only `covale*` records: `disulf`
+#: is the DS contact type itself and `metalc` is metal coordination, both
+#: reported on purpose. A link to a symmetry mate is not inside the file.
+IDENTITY_OPERATORS = {"1_555", "1555", "?", ".", ""}
+
+
+def link_partner(chain, resnum, icode, resname, atomname):
+    """One end of a declared link, keyed as the parser keys residues - chain,
+    number, insertion code, mapped residue name - with the atom name the parser
+    gives it. Returns None when the number is not an integer."""
+    try:
+        resnum = int(resnum)
+    except (TypeError, ValueError):
+        return None
+    icode = "" if icode in (None, "?", ".") else icode.strip()
+    if resname in ("HID", "HIE", "HSP", "HSD", "HSE"):
+        resname = "HIS"
+    atomname = STANDARD_ATOM_NAMES.get(resname, {}).get(atomname, atomname)
+    resname = HETERO_AS_STANDARD.get(resname, resname)
+    resname = residue_mapping.get(resname, resname)
+    return (chain, resnum, icode, resname), atomname
+
+
+def struct_conn_links(rows):
+    """The covalent links among `_struct_conn` rows (dicts keyed by item)."""
+    links = []
+    for row in rows:
+        if not row.get("conn_type_id", "").startswith("covale"):
+            continue
+        if (row.get("ptnr1_symmetry", "1_555") not in IDENTITY_OPERATORS
+                or row.get("ptnr2_symmetry", "1_555") not in IDENTITY_OPERATORS):
+            continue
+        ends = []
+        for n in (1, 2):
+            chain = row.get(f"ptnr{n}_label_asym_id", ".")
+            if chain in (".", "?"):
+                chain = row.get(f"ptnr{n}_auth_asym_id")
+            number = row.get(f"ptnr{n}_auth_seq_id", row.get(f"ptnr{n}_label_seq_id"))
+            ends.append(link_partner(chain, number, row.get(f"pdbx_ptnr{n}_PDB_ins_code"),
+                                     row.get(f"ptnr{n}_label_comp_id"),
+                                     row.get(f"ptnr{n}_label_atom_id")))
+        if None not in ends:
+            links.append(tuple(ends))
+    return links
+
+
+def pdb_link(line):
+    """The covalent link on a PDB `LINK` record, or None.
+
+    PDB format writes metal coordination on LINK records too; those are told
+    apart by element when the link is applied (contacts.covalent_exclusions).
+    """
+    rec = line.ljust(80)
+    if rec[59:65].strip() not in IDENTITY_OPERATORS or rec[66:72].strip() not in IDENTITY_OPERATORS:
+        return None
+    ends = (link_partner(rec[21], rec[22:26], rec[26], rec[17:20].strip(), rec[12:16].strip()),
+            link_partner(rec[51], rec[52:56], rec[56], rec[47:50].strip(), rec[42:46].strip()))
+    return None if None in ends else ends
+
+
 def element_of(atomname, explicit=None):
     """Best available element symbol for an atom.
 
@@ -174,6 +240,7 @@ def parse_pdb(pdb_file, all_altlocs=False):
     entity = None
     waters = []              # held aside; see WATERS
     seqres = {}              # chain -> residue names, for strand membership
+    links = []               # declared covalent links; see IDENTITY_OPERATORS
     ph = 7.4
     ph_pattern = re.compile(r'\bPH\b\s*[:\s]\s*([-+]?\d*\.\d+|\d+)')
 
@@ -197,6 +264,11 @@ def parse_pdb(pdb_file, all_altlocs=False):
         
             elif line.startswith("SEQRES"):
                 seqres.setdefault(line[11:12], set()).update(line[19:].split())
+
+            elif line.startswith("LINK "):
+                link = pdb_link(line)
+                if link:
+                    links.append(link)
 
             elif line.startswith("HEADER"):
                 if line[62:].strip().upper() not in PLACEHOLDER_IDS:
@@ -369,6 +441,7 @@ def parse_pdb(pdb_file, all_altlocs=False):
             current_protein,
             lambda r: r.resname in nucleic.get(r.chain.id, ()))
     admit_coordinating_waters(current_protein, waters)
+    current_protein.links = links
     return label_alternates(current_protein), ph
 
 
@@ -397,6 +470,9 @@ def parse_cif(cif_file, all_altlocs=False):
     nucleic_entities = set()  # entities that are nucleic-acid chains
     poly_columns = None       # _entity_poly loop header, while inside it
     poly_scalar_id = None     # _entity_poly written as scalars (one entity)
+    conn_columns = None       # _struct_conn loop header, while inside it
+    conn_values, conn_rows, conn_text = [], [], None
+    conn_scalar = {}          # _struct_conn written as scalars (one link)
     atomsite_block = False # _atom_site. lines
     atominfo_block = False # ATOM        lines
     atom_lines = []
@@ -412,8 +488,10 @@ def parse_cif(cif_file, all_altlocs=False):
         
         current_protein.id = os.path.basename(cif_file).split(".")[0]
         
+        previous = ""
         for line in f:
             line = line.strip()
+            previous, after_loop = line, previous == "loop_"
 
             if line.startswith("_entry.id"):
                 value = line[len("_entry.id"):].strip()
@@ -437,6 +515,38 @@ def parse_cif(cif_file, all_altlocs=False):
                         if "nucleotide" in values[poly_columns.index("type")]:
                             nucleic_entities.add(values[0])
                     continue
+            # _struct_conn: the links between residues (see IDENTITY_OPERATORS).
+            # A loop, whose rows can wrap and can hold ;-delimited text fields,
+            # or scalars when the file declares a single link.
+            if conn_columns is not None:
+                if line.startswith("_struct_conn."):
+                    conn_columns.append(line.split(".", 1)[1])
+                    continue
+                if conn_text is not None:
+                    if line.startswith(";"):
+                        conn_values.append(" ".join(conn_text).strip() or "?")
+                        conn_text = None
+                    else:
+                        conn_text.append(line)
+                elif line.startswith(";"):
+                    conn_text = [line[1:]]
+                elif line.startswith("#") or line.startswith("loop_") or line.startswith("_"):
+                    conn_columns = None
+                else:
+                    conn_values.extend(cif_tokens(line))
+                if conn_columns is not None:
+                    while len(conn_values) >= len(conn_columns):
+                        conn_rows.append(dict(zip(conn_columns, conn_values)))
+                        conn_values = conn_values[len(conn_columns):]
+                    continue
+            if line.startswith("_struct_conn."):
+                values = cif_tokens(line)
+                if after_loop:
+                    conn_columns, conn_values = [values[0].split(".", 1)[1]], []
+                elif len(values) > 1:
+                    conn_scalar[values[0].split(".", 1)[1]] = values[1]
+                continue
+
             if line.startswith("_entity_poly.entity_id"):
                 values = cif_tokens(line)
                 if len(values) > 1:
@@ -714,6 +824,7 @@ def parse_cif(cif_file, all_altlocs=False):
             current_protein,
             lambda r: r.atoms[0].entity in nucleic_entities)
     admit_coordinating_waters(current_protein, waters)
+    current_protein.links = struct_conn_links(conn_rows + ([conn_scalar] if conn_scalar else []))
     return label_alternates(current_protein), ph
 
 

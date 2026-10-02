@@ -135,6 +135,66 @@ def mutually_exclusive(residues):
     return pairs
 
 
+#: Two atoms of one residue this close are taken as bonded. It covers the bonds
+#: between C, N, O, S and P; longer ones - S-S, C-Br, C-I, anything to Se - are
+#: missed, which leaves a contact reported rather than hiding a real one.
+COVALENT_BOND = 1.9
+
+
+def bonded_neighbourhood(residue, atomname):
+    """An atom of a residue and every atom of that residue bonded to it.
+
+    Bonds inside a residue are not in the structure file; at this distance they
+    are unambiguous. Under --all-altlocs every copy of the atom counts.
+    """
+    centres = [a for a in residue.atoms if a.atomname == atomname]
+    return {a.atomname for a in residue.atoms if not a.atomname.startswith("RNG")
+            for c in centres
+            if dist((a.x, a.y, a.z), (c.x, c.y, c.z)) <= COVALENT_BOND}
+
+
+def covalent_exclusions(residues, links):
+    """Atom pairs that sit around a declared covalent bond (D30).
+
+    For a bond A-B between two residues, the pairs formed by A and the atoms
+    bonded to it, against B and the atoms bonded to it, are one to three bonds
+    apart - 1.3 to 2.5 A, set by the bond, not by any interaction - and are not
+    reported. Everything else between the two residues still is: in 2GUY the
+    Asn197 ND2 - NAG O5 "hydrogen bond" at 2.39 A goes, ND2 - NAG O7 at 3.4 A
+    stays. Ring stacking is untouched.
+
+    Only links with a component on at least one side. A covalent link between
+    two standard residues - an isopeptide, a crosslink, a cyclic peptide's
+    closing bond - would move amino-acid results and is left for the author.
+    Links whose atom is a metal are coordination (PDB writes them on LINK
+    records too), reported as MC on purpose.
+
+    Returns {(id(residue1), id(residue2)): {(atom name 1, atom name 2), ...}},
+    in both orders.
+    """
+    if not links:
+        return {}
+    from src.conditions import METALS
+    by_key = {residue.key: residue for residue in residues}
+    pairs = {}
+    for (key1, name1), (key2, name2) in links:
+        first, second = by_key.get(key1), by_key.get(key2)
+        if first is None or second is None or first is second:
+            continue
+        if not (first.is_hetero or second.is_hetero):
+            continue
+        if any(a.element in METALS for r, n in ((first, name1), (second, name2))
+               for a in r.atoms if a.atomname == n):
+            continue
+        around1 = bonded_neighbourhood(first, name1)
+        around2 = bonded_neighbourhood(second, name2)
+        pairs.setdefault((id(first), id(second)), set()).update(
+            (x, y) for x in around1 for y in around2)
+        pairs.setdefault((id(second), id(first)), set()).update(
+            (y, x) for x in around1 for y in around2)
+    return pairs
+
+
 def contact_detection(protein, context, uncertainty_flags, local_contact_types):
     """
     Detects contacts between atoms in a given protein.
@@ -206,6 +266,7 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
 
     set_anchors(residues, ceiling, hetero_rings)
     exclusive = mutually_exclusive(residues)
+    covalent = covalent_exclusions(residues, getattr(protein, "links", None))
 
     if interface:
         with open(interface,"r") as f:
@@ -235,6 +296,7 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
                 continue
 
             hetero_pair = False
+            bonded = None
             if residue1.is_hetero or residue2.is_hetero:
                 # Computed bound. The mined Ca-Ca table covers amino-acid pairs
                 # only, and there is no equivalent for a prosthetic group or
@@ -263,6 +325,9 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
                 # reach any of its atoms.
                 reach1 = residue2.radius + ceiling
                 reach2 = residue1.radius + ceiling
+                # atom pairs around a declared covalent bond (D30)
+                if covalent:
+                    bonded = covalent.get((id(residue1), id(residue2)))
 
             elif len(residue1.atoms) > 1 and len(residue2.atoms) > 1:
                 ca1, ca2 = residue1.atoms[1], residue2.atoms[1] # alpha carbons
@@ -347,6 +412,8 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
                     if (all_altlocs and atom1.altloc and atom2.altloc
                             and atom1.altloc != atom2.altloc):
                         continue
+                    if bonded and (atom1.atomname, atom2.atomname) in bonded:
+                        continue    # one to three bonds apart across a link (D30)
                     
                     if interface:
                         residue_interface_key = f"{chain1},{residue1.resnum},{residue1.resname}"
