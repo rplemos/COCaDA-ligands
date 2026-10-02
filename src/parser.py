@@ -133,6 +133,25 @@ def cif_tokens(line):
 #: stays the file name it was given at the start of parsing.
 PLACEHOLDER_IDS = {"XXXX", "?", ".", ""}
 
+#: An extended PDB id, `pdb_` and eight characters, of which the first four are
+#: zeros for every id issued so far: `pdb_00001abc` is `1abc`.
+EXTENDED_PDB_ID = re.compile(r"^pdb_0000([0-9a-z]{4})$", re.IGNORECASE)
+
+
+def structure_id(entry_id):
+    """The name a structure's output is written under, from its `_entry.id`.
+
+    A PDB id is used as it is, and an extended PDB id as the four-character id
+    it extends. Anything else is used whole. The last four characters used to be
+    taken from every id, which is the PDB id for a deposit but not for a model:
+    `AF-P02766-F1` became `6-F1`, so 489 AlphaFold models wrote to 12 output
+    names and each batch kept about one CSV in ten (D31).
+    """
+    match = EXTENDED_PDB_ID.match(entry_id)
+    if match:
+        return match.group(1)
+    return entry_id.replace("/", "_").replace(os.sep, "_")
+
 
 #: COVALENT LINKS. Structure files carry no bonds inside a residue, but the
 #: deposit declares the ones BETWEEN residues - `_struct_conn` in mmCIF, `LINK`
@@ -494,9 +513,10 @@ def parse_cif(cif_file, all_altlocs=False):
             previous, after_loop = line, previous == "loop_"
 
             if line.startswith("_entry.id"):
-                value = line[len("_entry.id"):].strip()
+                values = cif_tokens(line)
+                value = values[1] if len(values) > 1 else ""
                 if value.upper() not in PLACEHOLDER_IDS:
-                    current_protein.id = line[-4:]
+                    current_protein.id = structure_id(value)
 
             # _entity_poly.type names each polymer entity's kind, which is how a
             # strand made only of modified nucleotides - 1KDH's four BRU - is
