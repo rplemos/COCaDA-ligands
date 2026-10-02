@@ -127,8 +127,9 @@ def process_file(file_path, context):
 
     try:
         all_altlocs = getattr(context, "all_altlocs", False)
-        parsed_data, ph = (parser.parse_pdb(file_path, all_altlocs) if file_path.endswith(".pdb")
-                           else parser.parse_cif(file_path, all_altlocs))
+        min_plddt = getattr(context, "min_plddt", None)
+        parsed_data, ph = (parser.parse_pdb(file_path, all_altlocs, min_plddt) if file_path.endswith(".pdb")
+                           else parser.parse_cif(file_path, all_altlocs, min_plddt))
                 
         if context.ph is None:
             uncertainty_flags, local_contact_types = contacts.change_protonation(ph, context.silent)

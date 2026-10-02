@@ -21,7 +21,7 @@ class ProcessingContext:
         interface (str or None): Path to an interface residue list. Defaults to None.
     """
 
-    def __init__(self, distances, core=None, output=None, region=None, chains=None, interface=None, modified_distances=False, epsilon=0, ph=7.4, silent=False, uncertainty_flags=None, interchain=False, web=False, all_altlocs=False):
+    def __init__(self, distances, core=None, output=None, region=None, chains=None, interface=None, modified_distances=False, epsilon=0, ph=7.4, silent=False, uncertainty_flags=None, interchain=False, web=False, all_altlocs=False, min_plddt=None):
         self.core = core
         self.output = output
         self.region = region
@@ -36,6 +36,7 @@ class ProcessingContext:
         self.interchain = interchain
         self.web = web
         self.all_altlocs = all_altlocs
+        self.min_plddt = min_plddt
 
 class Protein:
     """
@@ -230,7 +231,7 @@ class Atom:
     """
     
     def __init__(self, atomname, x, y, z, occupancy, residue, entity, element=None,
-                 altloc=""):
+                 altloc="", bfactor=None):
         """
         Initializes a new Atom instance.
         """
@@ -254,6 +255,10 @@ class Atom:
         # - 9C21's His73 (altloc B) from the 2-methylhistidine HIC73 (altloc A)
         # - and it is the letter used to label them apart in the output.
         self.altloc = "" if altloc in (None, ".", "?") else altloc.strip()
+
+        # B-factor column, read only for --plddt, where a model keeps its pLDDT
+        # there. None otherwise.
+        self.bfactor = bfactor
 
 
 #: Single-character CCD component identifiers are indistinguishable from the

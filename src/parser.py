@@ -161,6 +161,29 @@ def native_force_field_residues(protein):
     return protein
 
 
+def filter_by_plddt(protein, min_plddt):
+    """Keep only the amino-acid residues a model is confident about (--plddt).
+
+    Predicted models write each atom's pLDDT, 0-100, in the B-factor column -
+    AlphaFold 2 the same value for every atom of a residue, AlphaFold 3 one per
+    atom - so a residue's confidence is the mean over its atoms, and a residue
+    below `min_plddt` is removed before any contact is looked for. Components
+    are never removed: their B-factor is not a pLDDT in AlphaFill (it is copied
+    from the PDB entry the ligand came from) or in docking output. On an
+    experimental structure the column holds B-factors and the filter has no
+    meaning. A residue with no B-factor is kept.
+    """
+    for chain in protein.chains:
+        chain.residues = [
+            residue for residue in chain.residues
+            if residue.is_hetero
+            or not any(a.bfactor is not None for a in residue.atoms)
+            or (sum(a.bfactor for a in residue.atoms if a.bfactor is not None)
+                / sum(1 for a in residue.atoms if a.bfactor is not None)) >= min_plddt]
+    protein.chains = [chain for chain in protein.chains if chain.residues]
+    return protein
+
+
 def add_standard_ring(residue):
     """The ring centroid of a standard aromatic residue, as the parser adds it
     while reading - for a residue that became standard after reading."""
@@ -340,7 +363,7 @@ def element_of(atomname, explicit=None):
     return name[0].upper() if name else ''
 
 
-def parse_pdb(pdb_file, all_altlocs=False):
+def parse_pdb(pdb_file, all_altlocs=False, min_plddt=None):
     """
     Parses a PDB file to create a Protein object.
 
@@ -502,10 +525,12 @@ def parse_pdb(pdb_file, all_altlocs=False):
                 
                 x, y, z = float(line[30:38]), float(line[38:46]), float(line[46:54])
                 occupancy = float(line[55:60])
+                bfactor = (float(line[60:66]) if min_plddt is not None
+                           and line[60:66].strip() else None)
                 altloc = line[16:17].strip()   # column 17
                 
                 atom = Atom(atomname, x, y, z, occupancy, current_residue, entity,
-                            element, altloc) # creates atom
+                            element, altloc, bfactor) # creates atom
 
                 # Alternate conformations: keep exactly ONE copy of each atom
                 # name - the highest occupancy, and the first one on a tie.
@@ -562,6 +587,8 @@ def parse_pdb(pdb_file, all_altlocs=False):
                     current_protein.id = id  
     
     native_force_field_residues(current_protein)
+    if min_plddt is not None:
+        filter_by_plddt(current_protein, min_plddt)
     nucleic = {chain: names for chain, names in seqres.items()
                if names & STANDARD_NUCLEOTIDES}
     if nucleic:
@@ -573,7 +600,7 @@ def parse_pdb(pdb_file, all_altlocs=False):
     return label_alternates(current_protein), ph
 
 
-def parse_cif(cif_file, all_altlocs=False):
+def parse_cif(cif_file, all_altlocs=False, min_plddt=None):
     """
     Parses a .cif file to create a Protein object.
 
@@ -765,6 +792,8 @@ def parse_cif(cif_file, all_altlocs=False):
                 y_index = atom_lines.index("Cartn_y")
                 z_index = atom_lines.index("Cartn_z")
                 occupancy_index = atom_lines.index("occupancy")
+                bfactor_index = (atom_lines.index("B_iso_or_equiv")
+                                 if "B_iso_or_equiv" in atom_lines else None)
                 model_index = atom_lines.index("pdbx_PDB_model_num")
                 atom_element_index = atom_lines.index("type_symbol")
                 entity_index = atom_lines.index("label_entity_id")
@@ -883,6 +912,8 @@ def parse_cif(cif_file, all_altlocs=False):
                     
                 x, y, z = float(line[x_index]), float(line[y_index]), float(line[z_index])
                 occupancy = float(line[occupancy_index])
+                bfactor = (float(line[bfactor_index]) if min_plddt is not None
+                           and bfactor_index is not None else None)
                 
                 if line[entity_index] == ".":
                     entity = chain_id
@@ -892,7 +923,7 @@ def parse_cif(cif_file, all_altlocs=False):
                 altloc = ("" if altloc_index is None else line[altloc_index])
                     
                 atom = Atom(atomname, x, y, z, occupancy, current_residue, entity,
-                            element, altloc) # creates atom
+                            element, altloc, bfactor) # creates atom
 
                 # Alternate conformations: keep exactly ONE copy of each atom
                 # name - the highest occupancy, and the first one on a tie.
@@ -952,6 +983,8 @@ def parse_cif(cif_file, all_altlocs=False):
         ph = 7.4
 
     native_force_field_residues(current_protein)
+    if min_plddt is not None:
+        filter_by_plddt(current_protein, min_plddt)
     if nucleic_entities:
         drop_strand_components(
             current_protein,

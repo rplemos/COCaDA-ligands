@@ -50,6 +50,7 @@ def cl_parse():
         parser.add_argument('-s', '--silent', required=False, action='store_true', help='Suppresses non-essential console output.')
         parser.add_argument('-inter', '--interchain', required=False, action='store_true', help='Calculates only interchain contacts.')
         parser.add_argument('-alt', '--all-altlocs', required=False, action='store_true', help='Report the contacts of every alternate conformation, not only the highest-occupancy one; atoms are paired within one conformer, and two columns (Alt1, Alt2) are added at the end of the CSV.')
+        parser.add_argument('-pl', '--plddt', type=validate_plddt, default=None, help='For predicted models: consider only amino-acid residues whose pLDDT, read from the B-factor column (as AlphaFold and other predictors write it), is at least this value (0-100). Components are never removed. Meaningless for experimental structures, whose B-factor column holds B-factors.')
         parser.add_argument('-w', '--web', required=False, default=0, help=SUPPRESS) #'Sets outputs to web format. Requires the use of -o flag.'
 
         args = parser.parse_args()
@@ -61,6 +62,7 @@ def cl_parse():
         interchain = args.interchain
         web = args.web
         all_altlocs = args.all_altlocs
+        min_plddt = args.plddt
                 
         ncores = cpu_count()
         multi = args.cores
@@ -115,7 +117,7 @@ def cl_parse():
         #traceback.print_exc() 
         exit(1)
         
-    return files, core, output, region, chains, interface, distances, modified_distances, ph, silent, interchain, web, all_altlocs
+    return files, core, output, region, chains, interface, distances, modified_distances, ph, silent, interchain, web, all_altlocs, min_plddt
         
         
 def validate_file(value):
@@ -256,6 +258,17 @@ def validate_ph(value):
     if not (0.1 <= ph <= 14.0):
         raise ArgumentTypeError(f"Invalid pH: Must be between 0.1 and 14 (got {ph}).")
     return ph
+
+
+def validate_plddt(value):
+    """A pLDDT threshold for --plddt: a number from 0 to 100."""
+    try:
+        plddt = float(value)
+    except ValueError:
+        raise ArgumentTypeError(f"Invalid pLDDT value: '{value}' is not a number.")
+    if not 0 <= plddt <= 100:
+        raise ArgumentTypeError(f"Invalid pLDDT: must be between 0 and 100 (got {plddt}).")
+    return plddt
 
 
 def validate_distances(value):

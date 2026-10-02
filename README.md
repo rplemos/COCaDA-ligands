@@ -67,7 +67,7 @@ The code includes a customized parser for both **PDB** and **CIF** files, with s
 
 2. Run COCαDA with the path to your folder or file:
     ```sh
-    python cocada.py -f path_to_files/*.{cif/pdb} [-m [CORES]] [-o [OUTPUT_DIR]] [-r] [-d] [-ph] [-c] [-s] [-inter] [-alt] [-h]
+    python cocada.py -f path_to_files/*.{cif/pdb} [-m [CORES]] [-o [OUTPUT_DIR]] [-r] [-d] [-ph] [-c] [-s] [-inter] [-alt] [-pl] [-h]
     ```
 
 ### ⚙️ Parameters
@@ -84,7 +84,30 @@ The code includes a customized parser for both **PDB** and **CIF** files, with s
 | `-s`, `--silent`| **(Optional)** Suppresses non-essential console output. |
 | `-inter`, `--interchain`| **(Optional)** Calculates only interchain contacts. |
 | `-alt`, `--all-altlocs`| **(Optional)** Reports the contacts of every alternate conformation instead of only the highest-occupancy one. Atoms are paired only within one conformer (altloc A with A or with atoms that have none), and two columns, `Alt1` and `Alt2`, are added at the end of each CSV row. |
+| `-pl`, `--plddt`| **(Optional)** For predicted models: considers only amino-acid residues whose pLDDT, read from the B-factor column as AlphaFold and other predictors write it, is at least the given value (0–100). A residue's pLDDT is the mean over its atoms. Components (ligands, ions) are never removed. Meaningless for experimental structures, whose B-factor column holds B-factors. |
 | `-h`, `--help` | **(Optional)** Shows help and usage instructions. |
+
+### 🧬 Computational models
+
+AlphaFold DB, ModelArchive and other predicted models are read like deposited
+structures; the output is named after the model's own id (`AF-P02766-F1`).
+
+- **Confidence.** Use `-pl` to leave out low-confidence residues, e.g. `-pl 70`.
+- **The format follows the extension.** A file is read as PDB when its name ends
+  in `.pdb` and as mmCIF otherwise; a PDB-format file saved as `.cif` (as some
+  ModelArchive downloads are) reads as empty, so rename it. Compressed files
+  (`.cif.gz`) must be decompressed first.
+- **Force-field residue names** (Amber `ASH`, `HIP`, `CYX`…, CHARMM `HSD`…,
+  GROMACS `HISE`…) are read as the residues they name.
+- **AlphaFill models must be filtered before analysis.** An AlphaFill file holds
+  the ligands transplanted from every PDB homologue at once, at full occupancy —
+  a median 30 components per cytochrome P450 — so their contacts with each other
+  dominate the output and are artifacts: these ligands are alternatives, never
+  present together. Keep only the transplants you want (AlphaFill reports each
+  one's source and fit) before running COCaDA.
+- **Metal coordination keeps its 2.8 Å window.** A transplanted or predicted
+  metal site is not refined; in AlphaFill P450s the heme iron sits 1.6–12.5 Å
+  from the cysteine, and some real Cys–Fe bonds fall just outside the window.
 
 ---
 
