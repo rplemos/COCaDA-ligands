@@ -203,6 +203,50 @@ class Component:
                 if a.get("type_symbol", "").upper() != "H"
                 and not (drop_leaving and a.get("pdbx_leaving_atom_flag") == "Y")]
 
+    def kept_leaving_atoms(self):
+        """Heavy leaving atoms that in-chain typing drops but a deposit may keep.
+
+        Typing an amino acid inside a chain removes its leaving atoms, which is
+        right for a residue with neighbours on both sides. Deposits keep some of
+        them anyway: OCS OD2 is a sulfonate oxygen the CCD flags as leaving (a
+        2014 remediation), and 3FG OD2 and GGL OE2 are similar. Untyped, such an
+        atom made no contact at all; 314 archive entries carried OCS OD2 alone.
+        These atoms get an entry typed from the free molecule.
+
+        OXT is left out on purpose. The curated table has no OXT for the twenty
+        standard amino acids, so a C-terminal Ala's OXT has never made a
+        contact; typing it on a C-terminal D-Ala only would make the two
+        termini behave differently.
+        """
+        if not self.typed_in_chain:
+            return []
+        return [a["atom_id"] for a in self.atoms
+                if a.get("type_symbol", "").upper() not in ("H", "D")
+                and a.get("pdbx_leaving_atom_flag") == "Y"
+                and a["atom_id"] != "OXT"]
+
+    def alias_names(self):
+        """{alternate name: atom name} for heavy atoms the CCD also names otherwise.
+
+        `_chem_comp_atom.alt_atom_id` keeps pre-remediation names (O1P for OP1,
+        O5* for O5', some older ligand schemes), and deposits still use them:
+        about 300 archive entries named 5GP, XMP or A2P phosphate oxygens O1P,
+        O2P, O3P. An alias is offered only when it is unambiguous: it differs
+        from the atom's own name, it is no CURRENT name of any atom in the
+        component (old and new schemes are often permutations of each other -
+        5GP's O2P is today's OP3, not OP2), and no two atoms share it.
+        """
+        current = {a["atom_id"] for a in self.atoms}
+        seen = {}
+        for a in self.atoms:
+            if a.get("type_symbol", "").upper() in ("H", "D"):
+                continue
+            alt = a.get("alt_atom_id")
+            if alt in (None, "", "?", ".") or alt == a["atom_id"] or alt in current:
+                continue
+            seen.setdefault(alt, []).append(a["atom_id"])
+        return {alt: names[0] for alt, names in seen.items() if len(names) == 1}
+
     def __repr__(self):
         return (f"<Component {self.id} "
                 f"{len(self.heavy_atom_names())} heavy atoms, {len(self.bonds)} bonds>")

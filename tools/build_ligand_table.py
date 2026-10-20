@@ -59,6 +59,59 @@ def existing_ids(path):
     return done, os.path.getsize(path)
 
 
+def type_component(component, factory):
+    """Every table entry for one component: ({atom name: vector}, ring systems).
+
+    Three layers, each only adding names, never changing one already set:
+
+    1. the molecule the generator types (ccd.for_typing): amino acids as they
+       sit in a chain, everything else whole;
+    2. heavy leaving atoms that in-chain typing dropped but deposits keep, OXT
+       excepted (Component.kept_leaving_atoms), typed from the free molecule;
+    3. unambiguous CCD alternate names (Component.alias_names), each with the
+       vector of the atom it names. Ring planes are not aliased: the renamed
+       atoms are sugar and phosphate atoms, not the aromatic rings that stack.
+
+    Layer 1 is exactly what the table held before layers 2 and 3 existed, so a
+    rebuild keeps every earlier entry byte for byte and only adds.
+    """
+    import ccd as ccd_module
+    from generate_atom_types import type_molecule, stacking_rings
+
+    mol, names = ccd_module.for_typing(component)
+    typed = type_molecule(mol, factory, lambda i: names.get(i))
+    systems = stacking_rings(mol, lambda i: names.get(i))
+
+    atoms = {}
+    for atom in mol.GetAtoms():
+        name = names.get(atom.GetIdx())
+        if name and atom.GetSymbol() != "H":
+            atoms[name] = typed.get(name, [0] * 6)
+    if not atoms:
+        return atoms, systems
+
+    kept = [n for n in component.kept_leaving_atoms() if n not in atoms]
+    if kept:
+        # The free build records its own repairs; only the outcome is logged,
+        # so the log of an unchanged component reads exactly as before.
+        before = list(component.repairs)
+        try:
+            free, free_names = ccd_module.to_rdkit(component)
+            free_typed = type_molecule(free, factory, lambda i: free_names.get(i))
+            for name in kept:
+                atoms[name] = free_typed.get(name, [0] * 6)
+            note = f"kept leaving atom(s) typed from the free molecule: {', '.join(kept)}"
+        except Exception as exc:                              # noqa: BLE001
+            note = f"kept leaving atom(s) {', '.join(kept)} left untyped: {exc}"
+        component.repairs[:] = before + [note]
+
+    for alt, name in component.alias_names().items():
+        if name in atoms and alt not in atoms:
+            atoms[alt] = atoms[name]
+
+    return atoms, systems
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Build COCaDA's ligand atom property table from the CCD.")
@@ -86,8 +139,7 @@ def main():
         sys.exit(f"error: no such file: {args.ccd}")
 
     import ccd as ccd_module
-    from generate_atom_types import (_load_factory, type_molecule,
-                                     stacking_rings)
+    from generate_atom_types import _load_factory
     from ligand_data import encode_name, pack
 
     partial = args.out + ".partial"
@@ -153,9 +205,7 @@ def main():
                 continue
 
             try:
-                mol, names = ccd_module.for_typing(component)
-                typed = type_molecule(mol, factory, lambda i: names.get(i))
-                systems = stacking_rings(mol, lambda i: names.get(i))
+                atoms, systems = type_component(component, factory)
             except Exception as exc:                          # noqa: BLE001
                 log.write(f"SKIP\t{component.id}\t{exc}\n")
                 skipped += 1
@@ -164,11 +214,6 @@ def main():
             for repair in component.repairs:
                 log.write(f"REPAIR\t{component.id}\t{repair}\n")
 
-            atoms = {}
-            for atom in mol.GetAtoms():
-                name = names.get(atom.GetIdx())
-                if name and atom.GetSymbol() != "H":
-                    atoms[name] = typed.get(name, [0] * 6)
             if not atoms:
                 continue
 
