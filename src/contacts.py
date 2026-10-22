@@ -200,6 +200,28 @@ def covalent_exclusions(residues, links):
     return pairs
 
 
+#: What a contact predicate reads, by contact type: the general vector (and,
+#: for hydrogen bonds, the helix and D29 skips), the electrostatic vector, the
+#: table names, or the atoms themselves.
+GENERAL, HBOND, ELECTROSTATIC, DISULFIDE, METAL = range(5)
+
+#: The vector of an atom with no flag: a water, or a metal for the
+#: electrostatic types. Read only.
+NO_FLAGS = (0, 0, 0, 0, 0, 0)
+
+
+def _kind(contact_type):
+    if contact_type == 'hydrogen_bond':
+        return HBOND
+    if contact_type in ('salt_bridge', 'attractive', 'repulsive'):
+        return ELECTROSTATIC
+    if contact_type == 'disulfide_bond':
+        return DISULFIDE
+    if contact_type == 'metal_coordination':
+        return METAL
+    return GENERAL
+
+
 def contact_detection(protein, context, uncertainty_flags, local_contact_types):
     """
     Detects contacts between atoms in a given protein.
@@ -272,6 +294,45 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
     set_anchors(residues, ceiling, hetero_rings)
     exclusive = mutually_exclusive(residues)
     covalent = covalent_exclusions(residues, getattr(protein, "links", None))
+
+    # Per-atom answers, worked out once per structure instead of for every
+    # atom pair in the loop below: the table name, whether the atom takes part
+    # at all, and the vectors the contact predicates read. The electrostatic
+    # types (salt bridge, attractive, repulsive) read their own vector: the
+    # pH-resolved one for an uncertain titratable atom, and all zeros for a
+    # metal - its charge is expressed as coordination, not as an ion pair, so
+    # a zinc 2.5 A from an aspartate does not report both. A water is admitted
+    # only to coordinate a metal, so its vectors are all zeros; an atom the
+    # table lacks takes part only if it is a metal, by element.
+    for residue in residues:
+        typed = []
+        for atom in residue.atoms:
+            key = f"{atom.residue.resname}:{atom.atomname}"
+            vector = local_contact_types.get(key)
+            metal = atom.element in conditions.METALS
+            water = atom.residue.resname in WATERS
+            atom.key = key
+            atom.uncertain = key in uncertainty_flags
+            if vector is None and not metal:
+                continue                    # untyped: the RNG pseudo-atom, a deposit's own name
+            atom.props = NO_FLAGS if water or vector is None else vector
+            if atom.uncertain:
+                atom.props_elec = resolve_uncertainty(key, uncertainty_flags, local_contact_types)
+            elif metal or water or vector is None:
+                atom.props_elec = NO_FLAGS
+            else:
+                atom.props_elec = vector
+            typed.append(atom)
+        residue.typed_atoms = typed
+
+    # The contact types with what each predicate reads, in the order of
+    # `categories` - the registry below keeps the first salt bridge, so the
+    # order is part of the result. Two amino acids cannot coordinate a metal,
+    # so their pairs skip that type.
+    types_all = [(contact_type, low, high, _kind(contact_type),
+                  conditions.contact_conditions[contact_type])
+                 for contact_type, (low, high) in categories.items()]
+    types_amino = [entry for entry in types_all if entry[3] != METAL]
 
     if interface:
         with open(interface,"r") as f:
@@ -403,152 +464,132 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
                         'atom2': ring2,
                     })
                     
-            for atom1 in residue1.atoms:
-                if hetero_pair and dist((atom1.x, atom1.y, atom1.z),
-                                        (anchor2.x, anchor2.y, anchor2.z)) > reach1:
-                    continue        # cannot reach any atom of the other residue
-                for atom2 in residue2.atoms:
-                    if hetero_pair and dist((atom2.x, atom2.y, atom2.z),
-                                            (anchor1.x, anchor1.y, anchor1.z)) > reach2:
-                        continue
-                    # One conformer at a time: altloc A pairs with A or with
-                    # an atom that has no alternate, never with B - the PDB's
-                    # convention, and what keeps two states from meeting.
-                    if (all_altlocs and atom1.altloc and atom2.altloc
-                            and atom1.altloc != atom2.altloc):
-                        continue
-                    if bonded and (atom1.atomname, atom2.atomname) in bonded:
-                        continue    # one to three bonds apart across a link (D30)
-                    
+            # Atoms that can take part. For two amino acids, every typed atom.
+            # For a pair with a component, only those within reach of the
+            # other's anchor - the exact bound above, tested once per atom
+            # rather than once per atom pair. Filtering keeps the order, and
+            # the order decides which salt bridge the registry keeps.
+            if hetero_pair:
+                atoms1 = [a for a in residue1.typed_atoms
+                          if dist((a.x, a.y, a.z), (anchor2.x, anchor2.y, anchor2.z)) <= reach1]
+                atoms2 = [a for a in residue2.typed_atoms
+                          if dist((a.x, a.y, a.z), (anchor1.x, anchor1.y, anchor1.z)) <= reach2]
+                pair_types = types_all
+            else:
+                atoms1, atoms2 = residue1.typed_atoms, residue2.typed_atoms
+                pair_types = types_amino
+
+            # skips alpha-helix h-bonds, but only within a chain: residue
+            # numbers in different chains are unrelated
+            helix = chain1 == chain2 and abs(residue2.resnum - residue1.resnum) <= 3
+            cystines = residue1.resname == 'C' and residue2.resname == 'C'
+            # per atom pair only where a conformer or a covalent link can exclude one
+            guarded = all_altlocs or bool(bonded)
+
+            for atom1 in atoms1:
+                key1 = atom1.key
+                for atom2 in atoms2:
+                    if guarded:
+                        # One conformer at a time: altloc A pairs with A or with
+                        # an atom that has no alternate, never with B - the PDB's
+                        # convention, and what keeps two states from meeting.
+                        if (all_altlocs and atom1.altloc and atom2.altloc
+                                and atom1.altloc != atom2.altloc):
+                            continue
+                        if bonded and (atom1.atomname, atom2.atomname) in bonded:
+                            continue    # one to three bonds apart across a link (D30)
+
                     if interface:
                         residue_interface_key = f"{chain1},{residue1.resnum},{residue1.resname}"
                         # if (atom1.entity == atom2.entity) or (residue_interface_key not in interface_res):
                         #     continue
                         if (residue_interface_key not in interface_res):
                             continue
-                    
-                    name1 = f"{atom1.residue.resname}:{atom1.atomname}" # matches the pattern from conditions dictionary
-                    name2 = f"{atom2.residue.resname}:{atom2.atomname}"
 
-                    # A metal is recognised by element, so it needs no dictionary
-                    # entry to take part in coordination - a bare Zn2+ or Mg2+
-                    # deposited as a single HETATM would otherwise be skipped
-                    # here and never reach the metal_coordination predicate.
-                    known1 = name1 in local_contact_types or atom1.element in conditions.METALS
-                    known2 = name2 in local_contact_types or atom2.element in conditions.METALS
+                    distance = dist((atom1.x, atom1.y, atom1.z), (atom2.x, atom2.y, atom2.z))
 
-                    if known1 and known2: # excludes the RNG atom and any different other
+                    # The largest window, not a literal 6: with -d widening
+                    # any window past 6 A, everything between 6 A and the
+                    # new maximum used to be dropped here - 21% of contacts
+                    # with every window widened by 2 A.
+                    if distance <= ceiling:
 
-                        distance = dist((atom1.x, atom1.y, atom1.z), (atom2.x, atom2.y, atom2.z))
-                        
-                        # The largest window, not a literal 6: with -d widening
-                        # any window past 6 A, everything between 6 A and the
-                        # new maximum used to be dropped here - 21% of contacts
-                        # with every window widened by 2 A.
-                        if distance <= ceiling:
+                        for contact_type, low, high, kind, condition in pair_types:
 
-                            for contact_type, distance_range in categories.items():
-
-                                # skips alpha-helix h-bonds, but only within a chain:
-                                # residue numbers in different chains are unrelated
-                                if (contact_type == 'hydrogen_bond'
-                                        and chain1 == chain2
-                                        and abs(residue2.resnum - residue1.resnum) <= 3):
+                            if kind == HBOND:
+                                if helix:
                                     continue
-
                                 # D29: a disulfide is one interaction. Its two SG
                                 # atoms are also donor and acceptor, so the same
                                 # pair was written as a hydrogen bond besides DS -
                                 # in published v1.6 as well, and only where the
                                 # deposited pH left SG both (within 2 of pKa 8.3).
-                                if (contact_type == 'hydrogen_bond'
-                                        and name1 == 'C:SG' and name2 == 'C:SG'
+                                if (cystines and key1 == 'C:SG' and atom2.key == 'C:SG'
                                         and disulfide_range[0] <= distance <= disulfide_range[1]):
                                     continue
 
-                                if distance_range[0] <= distance <= distance_range[1]: # fits the range
+                            if low <= distance <= high: # fits the range
 
-                                    def get_props(name, atom, contact_type = contact_type):
-                                        if name in uncertainty_flags and contact_type in ['attractive','repulsive','salt_bridge']:
-                                            return resolve_uncertainty(name, uncertainty_flags, local_contact_types)
-                                        if contact_type == 'disulfide_bond':
-                                            return name
-                                        if contact_type == 'metal_coordination':
-                                            return atom  # defined by element, not by the flag vector
-                                        # A metal's charge is expressed as coordination, not as an
-                                        # ion pair. The CCD gives Zn2+ a +2 formal charge, so without
-                                        # this a zinc 2.5 A from an aspartate reports BOTH a salt
-                                        # bridge and a metal coordination for one interaction.
-                                        # Suppressing the electrostatic types leaves MC to carry it.
-                                        if (contact_type in ('attractive', 'repulsive', 'salt_bridge')
-                                                and atom.element in conditions.METALS):
-                                            return [0, 0, 0, 0, 0, 0]
-                                        # A water is admitted only when it
-                                        # coordinates a metal, and then it is a
-                                        # ligand of that centre and nothing
-                                        # else: all-zero leaves coordination as
-                                        # the only contact it can form, never a
-                                        # hydrogen bond to the protein.
-                                        if atom.residue.resname in WATERS:
-                                            return [0, 0, 0, 0, 0, 0]
-                                        # an unknown metal has no vector; all-zero means it
-                                        # forms no flag-based contact, only coordination
-                                        return local_contact_types.get(name, [0, 0, 0, 0, 0, 0])
+                                if kind == ELECTROSTATIC:
+                                    props1, props2 = atom1.props_elec, atom2.props_elec
+                                elif kind == DISULFIDE:
+                                    props1, props2 = key1, atom2.key
+                                elif kind == METAL:
+                                    props1, props2 = atom1, atom2   # defined by element
+                                else:
+                                    props1, props2 = atom1.props, atom2.props
 
-                                    props1 = get_props(name1, atom1)
-                                    props2 = get_props(name2, atom2)
-
-                                    if not conditions.contact_conditions[contact_type](props1, props2):
-                                        continue
+                                if not condition(props1, props2):
+                                    continue
                                     
-                                    # The registry admits one salt bridge, attractive and
-                                    # repulsive per residue pair - per conformer, when
-                                    # every alternate is reported, so B keeps its own.
-                                    reg_key = (pair_key + (atom1.altloc or atom2.altloc,)
-                                               if all_altlocs else pair_key)
-                                    stored_types = contact_registry[reg_key] # empty set if reg_key is new
+                                # The registry admits one salt bridge, attractive and
+                                # repulsive per residue pair - per conformer, when
+                                # every alternate is reported, so B keeps its own.
+                                reg_key = (pair_key + (atom1.altloc or atom2.altloc,)
+                                           if all_altlocs else pair_key)
+                                stored_types = contact_registry[reg_key] # empty set if reg_key is new
                                                                                             
-                                    if contact_type == 'salt_bridge':
-                                        if 'attractive' in stored_types:
-                                            # filters attractives out in-place (salt_bridge has priority)
-                                            contacts_by_pair[reg_key] = [c for c in contacts_by_pair[reg_key] if c['type'] != 'attractive']
-                                            stored_types.remove('attractive')
-                                        if 'salt_bridge' in stored_types:
-                                            continue # skip adding duplicate
-                                        stored_types.add('salt_bridge')
-                                    elif contact_type == 'attractive':
-                                        if 'attractive' in stored_types or 'salt_bridge' in stored_types:
-                                            continue
-                                        stored_types.add('attractive')
-                                    elif contact_type == 'repulsive':
-                                        if 'repulsive' in stored_types:
-                                            continue
-                                        stored_types.add('repulsive')
-                                    else:
-                                        stored_types.add(contact_type)
+                                if contact_type == 'salt_bridge':
+                                    if 'attractive' in stored_types:
+                                        # filters attractives out in-place (salt_bridge has priority)
+                                        contacts_by_pair[reg_key] = [c for c in contacts_by_pair[reg_key] if c['type'] != 'attractive']
+                                        stored_types.remove('attractive')
+                                    if 'salt_bridge' in stored_types:
+                                        continue # skip adding duplicate
+                                    stored_types.add('salt_bridge')
+                                elif contact_type == 'attractive':
+                                    if 'attractive' in stored_types or 'salt_bridge' in stored_types:
+                                        continue
+                                    stored_types.add('attractive')
+                                elif contact_type == 'repulsive':
+                                    if 'repulsive' in stored_types:
+                                        continue
+                                    stored_types.add('repulsive')
+                                else:
+                                    stored_types.add(contact_type)
                                     
-                                    contacts_by_pair[reg_key].append({
-                                        'protein_id': protein.id,
-                                        'chain1': chain1,
-                                        'resnum1': residue1.resnum,
-                                        'icode1': residue1.icode,
-                                        'alt1': residue1.alt_suffix,
-                                        'resname1': residue1.resname,
-                                        'atomname1': atom1.atomname,
-                                        'chain2': chain2,
-                                        'resnum2': residue2.resnum,
-                                        'icode2': residue2.icode,
-                                        'alt2': residue2.alt_suffix,
-                                        'resname2': residue2.resname,
-                                        'atomname2': atom2.atomname,
-                                        'distance': float(f"{distance:.2f}"),
-                                        'type': contact_type,
-                                        'atom1': atom1,
-                                        'atom2': atom2,
-                                        'is_uncertain':(name1 in uncertainty_flags or name2 in uncertainty_flags) and contact_type in ['attractive', 'repulsive', 'salt_bridge'],
-                                        'altloc1': atom1.altloc,
-                                        'altloc2': atom2.altloc,
-                                    })
+                                contacts_by_pair[reg_key].append({
+                                    'protein_id': protein.id,
+                                    'chain1': chain1,
+                                    'resnum1': residue1.resnum,
+                                    'icode1': residue1.icode,
+                                    'alt1': residue1.alt_suffix,
+                                    'resname1': residue1.resname,
+                                    'atomname1': atom1.atomname,
+                                    'chain2': chain2,
+                                    'resnum2': residue2.resnum,
+                                    'icode2': residue2.icode,
+                                    'alt2': residue2.alt_suffix,
+                                    'resname2': residue2.resname,
+                                    'atomname2': atom2.atomname,
+                                    'distance': float(f"{distance:.2f}"),
+                                    'type': contact_type,
+                                    'atom1': atom1,
+                                    'atom2': atom2,
+                                    'is_uncertain': kind == ELECTROSTATIC and (atom1.uncertain or atom2.uncertain),
+                                    'altloc1': atom1.altloc,
+                                    'altloc2': atom2.altloc,
+                                })
     
     contacts, count_types = create_contacts(contacts_by_pair)
     
