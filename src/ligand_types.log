@@ -1,5 +1,4 @@
-BUILD	2026-10-20	RDKit 2025.09.1, components.cif
-REPAIR	00I	kept leaving atom(s) typed from the free molecule: OE2
+BUILD	2026-10-22	RDKit 2025.09.1, components.cif
 REPAIR	02V	kept leaving atom(s) typed from the free molecule: O1
 REPAIR	02Y	kept leaving atom(s) typed from the free molecule: N2, N3
 REPAIR	05N	kept leaving atom(s) typed from the free molecule: O
@@ -15,35 +14,18 @@ REPAIR	0AQ	removed H17 bonded to N11 (formal charge -1)
 REPAIR	0AQ	removed H18 bonded to N11 (formal charge -1)
 REPAIR	0AV	full sanitisation failed (non-ring atom 17 marked aromatic); retried without kekulisation
 REPAIR	0E5	kept leaving atom(s) typed from the free molecule: O3
-REPAIR	0E6	kept leaving atom(s) typed from the free molecule: CL
-REPAIR	0G6	kept leaving atom(s) typed from the free molecule: CL
-REPAIR	0G7	kept leaving atom(s) typed from the free molecule: CL1
-REPAIR	0GE	kept leaving atom(s) typed from the free molecule: CL
-REPAIR	0GJ	kept leaving atom(s) typed from the free molecule: CL
-REPAIR	0H8	kept leaving atom(s) typed from the free molecule: O8
-REPAIR	0HG	kept leaving atom(s) typed from the free molecule: OXT1
-REPAIR	0HH	kept leaving atom(s) typed from the free molecule: OXT1
-REPAIR	0I5	kept leaving atom(s) typed from the free molecule: F1
 REPAIR	0I7	full sanitisation failed (Explicit valence for atom # 7 B, 4, is greater than permitted); retried without kekulisation
 REPAIR	0MI	removed H5 bonded to N3 (formal charge -1)
 REPAIR	0NC	full sanitisation failed (Explicit valence for atom # 2 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	0OD	full sanitisation failed (Explicit valence for atom # 20 C, 5, is greater than permitted); retried without kekulisation
-REPAIR	0P0	kept leaving atom(s) typed from the free molecule: OXT1
-REPAIR	0P2	kept leaving atom(s) typed from the free molecule: O21
-REPAIR	0PC	kept leaving atom(s) typed from the free molecule: CL1
 REPAIR	0SP	full sanitisation failed (non-ring atom 17 marked aromatic); retried without kekulisation
 REPAIR	0TE	full sanitisation failed (Explicit valence for atom # 0 Cl, 1, is greater than permitted); retried without kekulisation
-REPAIR	0Z6	kept leaving atom(s) typed from the free molecule: CL
-REPAIR	0ZJ	kept leaving atom(s) typed from the free molecule: CL
-REPAIR	0ZO	kept leaving atom(s) typed from the free molecule: CL1
 REPAIR	10R	full sanitisation failed (Explicit valence for atom # 0 B, 6, is greater than permitted); retried without kekulisation
 REPAIR	10S	full sanitisation failed (Explicit valence for atom # 0 B, 6, is greater than permitted); retried without kekulisation
 REPAIR	11Q	full sanitisation failed (Explicit valence for atom # 0 N, 4, is greater than permitted); retried without kekulisation
 REPAIR	1C3	full sanitisation failed (Explicit valence for atom # 13 N, 4, is greater than permitted); retried without kekulisation
 REPAIR	1FH	removed H2A bonded to O2A (formal charge -1)
 REPAIR	1FH	removed H1D bonded to O1D (formal charge -1)
-REPAIR	1HB	full sanitisation failed (Explicit valence for atom # 0 C, 5, is greater than permitted); retried without kekulisation
-REPAIR	1HD	full sanitisation failed (Explicit valence for atom # 0 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	1IP	kept leaving atom(s) typed from the free molecule: O
 REPAIR	1KW	full sanitisation failed (Explicit valence for atom # 0 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	1ME	kept leaving atom(s) typed from the free molecule: OAR
@@ -54,8 +36,6 @@ REPAIR	1RF	removed H13 bonded to O6 (formal charge -1)
 REPAIR	1U8	full sanitisation failed (Explicit valence for atom # 2 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	1U8	kept leaving atom(s) typed from the free molecule: O1, C2, O2, C1, C3, C4, C5, C6, C7, C8, C10
 REPAIR	1WT	full sanitisation failed (Can't kekulize mol.  Unkekulized atoms: 22 23 24 27 28 29 30 31 32); retried without kekulisation
-REPAIR	1ZB	kept leaving atom(s) typed from the free molecule: N3, N4
-REPAIR	1ZG	kept leaving atom(s) typed from the free molecule: OGG
 REPAIR	25X	full sanitisation failed (Explicit valence for atom # 6 C, 6, is greater than permitted); retried without kekulisation
 REPAIR	25Y	full sanitisation failed (Explicit valence for atom # 5 C, 6, is greater than permitted); retried without kekulisation
 REPAIR	267	full sanitisation failed (non-ring atom 6 marked aromatic); retried without kekulisation
@@ -64,8 +44,6 @@ REPAIR	2FH	removed H1A bonded to O2A (formal charge -1)
 REPAIR	2FH	removed H1D bonded to O1D (formal charge -1)
 REPAIR	2FK	full sanitisation failed (Explicit valence for atom # 0 O, 2, is greater than permitted); retried without kekulisation
 REPAIR	2JC	kept leaving atom(s) typed from the free molecule: O1
-REPAIR	2MK	kept leaving atom(s) typed from the free molecule: O1
-REPAIR	2OY	kept leaving atom(s) typed from the free molecule: CL1
 REPAIR	2PT	full sanitisation failed (Explicit valence for atom # 57 Cl, 1, is greater than permitted); retried without kekulisation
 REPAIR	2QZ	full sanitisation failed (Explicit valence for atom # 0 N, 4, is greater than permitted); retried without kekulisation
 REPAIR	2YC	kept leaving atom(s) typed from the free molecule: O2
@@ -73,17 +51,12 @@ REPAIR	2YF	kept leaving atom(s) typed from the free molecule: O1
 REPAIR	2YG	kept leaving atom(s) typed from the free molecule: O1
 REPAIR	2YH	kept leaving atom(s) typed from the free molecule: O2
 REPAIR	2YJ	kept leaving atom(s) typed from the free molecule: O1
-REPAIR	2YS	kept leaving atom(s) typed from the free molecule: CL1
-REPAIR	2YT	kept leaving atom(s) typed from the free molecule: CL1
-REPAIR	2Z0	kept leaving atom(s) typed from the free molecule: CL1
 REPAIR	2ZC	kept leaving atom(s) typed from the free molecule: O1
 REPAIR	31Q	full sanitisation failed (Can't kekulize mol.  Unkekulized atoms: 2 3 4 5 6); retried without kekulisation
 REPAIR	32L	full sanitisation failed (Explicit valence for atom # 9 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	34B	full sanitisation failed (Explicit valence for atom # 6 B, 6, is greater than permitted); retried without kekulisation
 REPAIR	39B	full sanitisation failed (Explicit valence for atom # 10 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	39E	full sanitisation failed (Explicit valence for atom # 10 C, 5, is greater than permitted); retried without kekulisation
-REPAIR	3A1	kept leaving atom(s) typed from the free molecule: O80
-REPAIR	3A2	kept leaving atom(s) typed from the free molecule: O42
 REPAIR	3A5	full sanitisation failed (Explicit valence for atom # 9 N, 4, is greater than permitted); retried without kekulisation
 REPAIR	3BY	full sanitisation failed (Explicit valence for atom # 6 N, 4, is greater than permitted); retried without kekulisation
 REPAIR	3DB	full sanitisation failed (non-ring atom 6 marked aromatic); retried without kekulisation
@@ -100,14 +73,11 @@ REPAIR	3ZH	kept leaving atom(s) typed from the free molecule: O1
 REPAIR	3ZL	kept leaving atom(s) typed from the free molecule: O1
 REPAIR	3ZZ	removed H6 bonded to O2A (formal charge -1)
 REPAIR	3ZZ	removed H32 bonded to O1D (formal charge -1)
-REPAIR	48V	kept leaving atom(s) typed from the free molecule: O1
 REPAIR	498	removed H14 bonded to C14 (formal charge -1)
 REPAIR	4A6	full sanitisation failed (Explicit valence for atom # 1 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	4AR	full sanitisation failed (Explicit valence for atom # 2 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	4AR	kept leaving atom(s) typed from the free molecule: O2, C8, C9, C10, C11, C12, C13, C14, O3, C15, C16
 REPAIR	4EX	full sanitisation failed (Explicit valence for atom # 1 B, 4, is greater than permitted); retried without kekulisation
-REPAIR	4H0	full sanitisation failed (Explicit valence for atom # 6 C, 5, is greater than permitted); retried without kekulisation
-REPAIR	4H0	kept leaving atom(s) typed from the free molecule: O4, C6, C7, C8, C9, C10, C11, F1, F2, F3, F4
 REPAIR	4HE	removed H1 bonded to O1D (formal charge -1)
 REPAIR	4HE	removed H32 bonded to O1A (formal charge -1)
 REPAIR	4HE	full sanitisation failed (Can't kekulize mol.  Unkekulized atoms: 44 45 46 47 48); retried without kekulisation
@@ -130,7 +100,6 @@ REPAIR	522	removed H34 bonded to O1D (formal charge -1)
 REPAIR	5L1	full sanitisation failed (Explicit valence for atom # 5 C, 3, is greater than permitted); retried without kekulisation
 REPAIR	5LN	full sanitisation failed (Explicit valence for atom # 0 C, 4, is greater than permitted); retried without kekulisation
 REPAIR	5R5	full sanitisation failed (Explicit valence for atom # 2 C, 5, is greater than permitted); retried without kekulisation
-REPAIR	5S4	kept leaving atom(s) typed from the free molecule: OP3
 REPAIR	5VV	full sanitisation failed (Explicit valence for atom # 0 N, 4, is greater than permitted); retried without kekulisation
 REPAIR	5XU	full sanitisation failed (Explicit valence for atom # 2 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	65T	kept leaving atom(s) typed from the free molecule: OXY
@@ -163,7 +132,6 @@ REPAIR	76R	removed H1 bonded to O2D (formal charge -1)
 REPAIR	76R	removed H2 bonded to O1B (formal charge -1)
 REPAIR	76R	removed H3 bonded to O1C (formal charge -1)
 REPAIR	76R	removed H4 bonded to O1A (formal charge -1)
-REPAIR	7BB	full sanitisation failed (Explicit valence for atom # 11 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	7G4	removed H4 bonded to C14 (formal charge -1)
 REPAIR	7G4	removed H9 bonded to C19 (formal charge -1)
 REPAIR	7G4	full sanitisation failed (Explicit valence for atom # 0 C, 5, is greater than permitted); retried without kekulisation
@@ -182,7 +150,6 @@ REPAIR	89R	removed H11 bonded to O2 (formal charge -1)
 REPAIR	89R	removed H12 bonded to O1 (formal charge -1)
 REPAIR	8BA	full sanitisation failed (Explicit valence for atom # 0 P, 6, is greater than permitted); retried without kekulisation
 REPAIR	8BA	free molecule would not sanitise; typed in-chain instead
-REPAIR	8BB	full sanitisation failed (Explicit valence for atom # 5 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	8CY	removed H5 bonded to C13 (formal charge -1)
 REPAIR	8CY	removed H19 bonded to O64 (formal charge -1)
 REPAIR	8CY	removed H3 bonded to O1 (formal charge -1)
@@ -191,7 +158,6 @@ REPAIR	8JB	kept leaving atom(s) typed from the free molecule: O4
 REPAIR	8P8	full sanitisation failed (Explicit valence for atom # 6 C, 4, is greater than permitted); retried without kekulisation
 REPAIR	8WV	full sanitisation failed (Explicit valence for atom # 1 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	8WY	kept leaving atom(s) typed from the free molecule: O1
-REPAIR	9BB	full sanitisation failed (Explicit valence for atom # 9 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	9D7	removed H20 bonded to OBM (formal charge -1)
 REPAIR	9JA	full sanitisation failed (Explicit valence for atom # 9 B, 4, is greater than permitted); retried without kekulisation
 REPAIR	9JJ	full sanitisation failed (Explicit valence for atom # 44 B, 4, is greater than permitted); retried without kekulisation
@@ -256,7 +222,6 @@ REPAIR	A1CAB	full sanitisation failed (Explicit valence for atom # 1 N, 4, is gr
 REPAIR	A1CCQ	full sanitisation failed (Explicit valence for atom # 0 N, 4, is greater than permitted); retried without kekulisation
 REPAIR	A1CCR	full sanitisation failed (Explicit valence for atom # 0 N, 4, is greater than permitted); retried without kekulisation
 REPAIR	A1CCS	full sanitisation failed (Explicit valence for atom # 0 N, 4, is greater than permitted); retried without kekulisation
-REPAIR	A1CK7	kept leaving atom(s) typed from the free molecule: O1
 REPAIR	A1CM8	full sanitisation failed (Explicit valence for atom # 0 N, 4, is greater than permitted); retried without kekulisation
 REPAIR	A1CM9	full sanitisation failed (Explicit valence for atom # 0 N, 4, is greater than permitted); retried without kekulisation
 REPAIR	A1CRT	full sanitisation failed (Explicit valence for atom # 8 N, 4, is greater than permitted); retried without kekulisation
@@ -412,7 +377,6 @@ REPAIR	AVC	removed HOP2 bonded to OP2 (formal charge -1)
 REPAIR	AVC	removed HOP3 bonded to OP3 (formal charge -1)
 REPAIR	AVC	removed HV bonded to O2V (formal charge -1)
 REPAIR	AVN	kept leaving atom(s) typed from the free molecule: O1
-REPAIR	AY0	kept leaving atom(s) typed from the free molecule: P1
 REPAIR	AZK	full sanitisation failed (Explicit valence for atom # 9 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	B12	removed HOP5 bonded to O5 (formal charge -1)
 REPAIR	B13	removed HO4 bonded to O4 (formal charge -1)
@@ -430,7 +394,6 @@ REPAIR	B9F	full sanitisation failed (Explicit valence for atom # 2 C, 5, is grea
 REPAIR	BB8	kept leaving atom(s) typed from the free molecule: O
 REPAIR	BBC	full sanitisation failed (Explicit valence for atom # 5 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	BBQ	full sanitisation failed (Explicit valence for atom # 6 B, 4, is greater than permitted); retried without kekulisation
-REPAIR	BCC	kept leaving atom(s) typed from the free molecule: O3
 REPAIR	BE7	removed HO9 bonded to O9 (formal charge -1)
 REPAIR	BE7	full sanitisation failed (Can't kekulize mol.  Unkekulized atoms: 1 2 3 5 8); retried without kekulisation
 REPAIR	BEF	full sanitisation failed (Explicit valence for atom # 0 Be, 3, is greater than permitted); retried without kekulisation
@@ -543,7 +506,6 @@ REPAIR	DAZ	removed H11 bonded to N1 (formal charge -1)
 REPAIR	DAZ	removed H12 bonded to N1 (formal charge -1)
 REPAIR	DAZ	removed H21 bonded to N2 (formal charge -1)
 REPAIR	DAZ	removed H22 bonded to N2 (formal charge -1)
-REPAIR	DCL	kept leaving atom(s) typed from the free molecule: O
 REPAIR	DDH	removed HO2A bonded to O2A (formal charge -1)
 REPAIR	DDH	removed HO1D bonded to O1D (formal charge -1)
 REPAIR	DEU	removed H2D bonded to O2D (formal charge -1)
@@ -606,7 +568,6 @@ REPAIR	EMC	removed H12 bonded to C1 (formal charge -1)
 REPAIR	EMT	removed H11 bonded to C1 (formal charge -1)
 REPAIR	EMT	removed H12 bonded to C1 (formal charge -1)
 REPAIR	EMT	removed HO bonded to OD2 (formal charge -1)
-REPAIR	EP9	kept leaving atom(s) typed from the free molecule: O2
 REPAIR	EU0	full sanitisation failed (Explicit valence for atom # 3 N, 4, is greater than permitted); retried without kekulisation
 REPAIR	F0L	removed H1 bonded to O58 (formal charge -1)
 REPAIR	F0L	removed H12 bonded to O62 (formal charge -1)
@@ -690,7 +651,6 @@ REPAIR	GIX	removed HO1A bonded to O1A (formal charge -1)
 REPAIR	GIX	removed HO1D bonded to O1D (formal charge -1)
 REPAIR	GL3	kept leaving atom(s) typed from the free molecule: O
 REPAIR	GLJ	kept leaving atom(s) typed from the free molecule: OE2
-REPAIR	GLK	kept leaving atom(s) typed from the free molecule: O
 SKIP	GLX	Post-condition Violation
 	Element 'X' not found
 	Violation occurred on line 93 in file Code/GraphMol/PeriodicTable.h
@@ -703,7 +663,6 @@ REPAIR	GMV	removed H2B bonded to O2B (formal charge -1)
 REPAIR	GMV	removed H3B bonded to O3B (formal charge -1)
 REPAIR	GMV	removed H4B bonded to O4B (formal charge -1)
 REPAIR	GMV	removed H2A bonded to O2A (formal charge -1)
-REPAIR	GVE	full sanitisation failed (Explicit valence for atom # 4 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	GWW	removed H1 bonded to O1 (formal charge -1)
 REPAIR	GWW	removed H2 bonded to O3 (formal charge -1)
 REPAIR	GWW	removed H3 bonded to O4 (formal charge -1)
@@ -718,7 +677,6 @@ REPAIR	H1W	removed H2 bonded to O10 (formal charge -1)
 REPAIR	H1W	removed H3 bonded to O11 (formal charge -1)
 REPAIR	H1W	removed H4 bonded to O12 (formal charge -1)
 REPAIR	H1W	removed H5 bonded to O15 (formal charge -1)
-REPAIR	H37	kept leaving atom(s) typed from the free molecule: CL1
 REPAIR	H57	removed H19 bonded to CAM (formal charge -1)
 REPAIR	H57	removed H24 bonded to CBL (formal charge -1)
 REPAIR	H57	full sanitisation failed (Explicit valence for atom # 17 C, 5, is greater than permitted); retried without kekulisation
@@ -808,7 +766,6 @@ REPAIR	HRU	full sanitisation failed (Explicit valence for atom # 3 C, 5, is grea
 REPAIR	HSL	full sanitisation failed (Explicit valence for atom # 2 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	HUJ	full sanitisation failed (Explicit valence for atom # 32 B, 4, is greater than permitted); retried without kekulisation
 REPAIR	HYD	removed H bonded to O (formal charge -1)
-REPAIR	I0X	kept leaving atom(s) typed from the free molecule: N3, N4
 REPAIR	I2A	removed H95 bonded to O11 (formal charge -1)
 REPAIR	I2A	removed H98 bonded to O01 (formal charge -1)
 REPAIR	I6K	full sanitisation failed (Explicit valence for atom # 6 Cl, 1, is greater than permitted); retried without kekulisation
@@ -826,7 +783,6 @@ REPAIR	ILM	full sanitisation failed (Explicit valence for atom # 0 C, 5, is grea
 REPAIR	IOX	full sanitisation failed (non-ring atom 1 marked aromatic); retried without kekulisation
 REPAIR	ISW	removed HO1D bonded to O1D (formal charge -1)
 REPAIR	ISW	removed HO2A bonded to O2A (formal charge -1)
-REPAIR	IVF	kept leaving atom(s) typed from the free molecule: I1
 REPAIR	J0K	full sanitisation failed (Explicit valence for atom # 7 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	J0N	full sanitisation failed (Explicit valence for atom # 13 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	J2O	full sanitisation failed (Explicit valence for atom # 25 Cl, 1, is greater than permitted); retried without kekulisation
@@ -860,11 +816,9 @@ REPAIR	JSD	removed H9 bonded to C20 (formal charge -1)
 REPAIR	JSE	removed H5 bonded to C15 (formal charge -1)
 REPAIR	JSE	removed H9 bonded to C20 (formal charge -1)
 REPAIR	K1R	kept leaving atom(s) typed from the free molecule: O21
-REPAIR	K36	kept leaving atom(s) typed from the free molecule: S1, O1, O2, O3
 REPAIR	K6G	full sanitisation failed (Explicit valence for atom # 66 N, 4, is greater than permitted); retried without kekulisation
 REPAIR	K7E	removed H1 bonded to S2 (formal charge -1)
 REPAIR	K9G	full sanitisation failed (Explicit valence for atom # 25 N, 4, is greater than permitted); retried without kekulisation
-REPAIR	KAC	full sanitisation failed (Explicit valence for atom # 5 N, 4, is greater than permitted); retried without kekulisation
 REPAIR	KBW	removed H1 bonded to O1 (formal charge -1)
 REPAIR	KBW	removed H2 bonded to O3 (formal charge -1)
 REPAIR	KBW	removed H4 bonded to O16 (formal charge -1)
@@ -879,14 +833,11 @@ REPAIR	KL2	removed HOV3 bonded to O3V (formal charge -1)
 REPAIR	KQB	full sanitisation failed (Explicit valence for atom # 1 F, 1, is greater than permitted); retried without kekulisation
 REPAIR	KYS	removed HN27 bonded to N27 (formal charge -1)
 REPAIR	KYT	full sanitisation failed (Explicit valence for atom # 0 Cl, 1, is greater than permitted); retried without kekulisation
-REPAIR	L2O	full sanitisation failed (Explicit valence for atom # 0 N, 4, is greater than permitted); retried without kekulisation
 REPAIR	L8W	removed H8 bonded to C24 (formal charge -1)
 REPAIR	L8W	full sanitisation failed (Explicit valence for atom # 4 C, 4, is greater than permitted); retried without kekulisation
 REPAIR	LAL	full sanitisation failed (Explicit valence for atom # 3 N, 4, is greater than permitted); retried without kekulisation
 REPAIR	LD3	full sanitisation failed (Explicit valence for atom # 0 C, 5, is greater than permitted); retried without kekulisation
-REPAIR	LEE	kept leaving atom(s) typed from the free molecule: OXT1
 REPAIR	LEH	kept leaving atom(s) typed from the free molecule: O2
-REPAIR	LHE	full sanitisation failed (Explicit valence for atom # 14 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	LN8	full sanitisation failed (Explicit valence for atom # 18 Cl, 1, is greater than permitted); retried without kekulisation
 REPAIR	LPT	full sanitisation failed (Explicit valence for atom # 25 Cl, 1, is greater than permitted); retried without kekulisation
 REPAIR	LSI	removed H17 bonded to C14 (formal charge -1)
@@ -976,9 +927,7 @@ REPAIR	NLO	full sanitisation failed (Explicit valence for atom # 2 C, 5, is grea
 REPAIR	NMQ	full sanitisation failed (Explicit valence for atom # 0 Be, 4, is greater than permitted); retried without kekulisation
 REPAIR	NMR	full sanitisation failed (Explicit valence for atom # 0 B, 4, is greater than permitted); retried without kekulisation
 REPAIR	NOF	full sanitisation failed (Explicit valence for atom # 3 C, 5, is greater than permitted); retried without kekulisation
-REPAIR	NOR	full sanitisation failed (Explicit valence for atom # 11 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	NOT	full sanitisation failed (Explicit valence for atom # 0 N, 4, is greater than permitted); retried without kekulisation
-REPAIR	NSF	full sanitisation failed (Explicit valence for atom # 14 N, 4, is greater than permitted); retried without kekulisation
 REPAIR	NT3	full sanitisation failed (Explicit valence for atom # 5 C, 4, is greater than permitted); retried without kekulisation
 REPAIR	NWS	removed H14 bonded to O13 (formal charge -1)
 REPAIR	NWS	removed H15 bonded to O15 (formal charge -1)
@@ -1008,7 +957,6 @@ REPAIR	OHX	removed HN6A bonded to N6 (formal charge -1)
 REPAIR	OMO	removed HO1 bonded to OR1 (formal charge -1)
 REPAIR	OMO	removed HO2 bonded to OM2 (formal charge -1)
 REPAIR	ONP	full sanitisation failed (Explicit valence for atom # 0 Be, 4, is greater than permitted); retried without kekulisation
-REPAIR	OO1	kept leaving atom(s) typed from the free molecule: O1
 REPAIR	ORS	full sanitisation failed (Explicit valence for atom # 0 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	OS1	full sanitisation failed (Explicit valence for atom # 15 Cl, 1, is greater than permitted); retried without kekulisation
 REPAIR	OSW	full sanitisation failed (Explicit valence for atom # 1 B, 6, is greater than permitted); retried without kekulisation
@@ -1044,7 +992,6 @@ REPAIR	PCA	full sanitisation failed (Explicit valence for atom # 0 N, 4, is grea
 REPAIR	PCS	kept leaving atom(s) typed from the free molecule: CL1
 REPAIR	PDV	removed HO6 bonded to O6 (formal charge -1)
 REPAIR	PDW	full sanitisation failed (Explicit valence for atom # 6 C, 5, is greater than permitted); retried without kekulisation
-REPAIR	PGL	kept leaving atom(s) typed from the free molecule: O3
 REPAIR	PHF	removed HA11 bonded to OA1 (formal charge -1)
 REPAIR	PHF	removed HB11 bonded to OB1 (formal charge -1)
 REPAIR	PHF	removed HB21 bonded to OB2 (formal charge -1)
@@ -1057,21 +1004,16 @@ REPAIR	PHF	removed HE11 bonded to OE1 (formal charge -1)
 REPAIR	PHF	removed HE21 bonded to OE2 (formal charge -1)
 REPAIR	PHF	removed HE31 bonded to OE3 (formal charge -1)
 REPAIR	PHG	full sanitisation failed (Can't kekulize mol.  Unkekulized atoms: 0 1 2 4 5); retried without kekulisation
-REPAIR	PHM	kept leaving atom(s) typed from the free molecule: CL1
-REPAIR	PHV	kept leaving atom(s) typed from the free molecule: OP3
 REPAIR	PIV	kept leaving atom(s) typed from the free molecule: O2
-REPAIR	PLE	kept leaving atom(s) typed from the free molecule: O3
 REPAIR	PLJ	full sanitisation failed (Explicit valence for atom # 6 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	PLL	removed H20 bonded to C20 (formal charge -1)
 REPAIR	PLL	removed H20A bonded to C20 (formal charge -1)
 REPAIR	PMB	full sanitisation failed (Explicit valence for atom # 16 Cl, 1, is greater than permitted); retried without kekulisation
 REPAIR	PNQ	full sanitisation failed (Explicit valence for atom # 0 Be, 4, is greater than permitted); retried without kekulisation
-REPAIR	PPH	kept leaving atom(s) typed from the free molecule: O3
 REPAIR	PQG	full sanitisation failed (Explicit valence for atom # 6 N, 4, is greater than permitted); retried without kekulisation
 REPAIR	PQJ	full sanitisation failed (Explicit valence for atom # 10 N, 4, is greater than permitted); retried without kekulisation
 REPAIR	PR4	kept leaving atom(s) typed from the free molecule: O5
 REPAIR	PR7	kept leaving atom(s) typed from the free molecule: O5
-REPAIR	PS0	kept leaving atom(s) typed from the free molecule: OS
 REPAIR	PT7	full sanitisation failed (Can't kekulize mol.  Unkekulized atoms: 26 27 28 29 30); retried without kekulisation
 REPAIR	PTN	full sanitisation failed (Explicit valence for atom # 13 Cl, 1, is greater than permitted); retried without kekulisation
 REPAIR	PTT	removed HX1 bonded to OX1 (formal charge -1)
@@ -1159,7 +1101,6 @@ SKIP	SPW	Post-condition Violation
 	RDKIT: 2025.09.1
 	BOOST: 1_85
 
-REPAIR	SQ6	full sanitisation failed (Explicit valence for atom # 0 N, 4, is greater than permitted); retried without kekulisation
 REPAIR	SRX	full sanitisation failed (Explicit valence for atom # 1 Cl, 1, is greater than permitted); retried without kekulisation
 REPAIR	SRZ	kept leaving atom(s) typed from the free molecule: OH
 REPAIR	SVP	removed H39 bonded to C1 (formal charge -1)
@@ -1184,7 +1125,6 @@ REPAIR	TBY	removed H6A bonded to C6 (formal charge -1)
 REPAIR	TBY	full sanitisation failed (Explicit valence for atom # 34 Cl, 1, is greater than permitted); retried without kekulisation
 REPAIR	TC	full sanitisation failed (Explicit valence for atom # 17 P, 6, is greater than permitted); retried without kekulisation
 REPAIR	TC	free molecule would not sanitise; typed in-chain instead
-REPAIR	TCK	kept leaving atom(s) typed from the free molecule: CL1
 REPAIR	TDJ	removed H7 bonded to C15 (formal charge -1)
 REPAIR	TDJ	removed H13 bonded to C20 (formal charge -1)
 REPAIR	TDJ	full sanitisation failed (Explicit valence for atom # 1 C, 5, is greater than permitted); retried without kekulisation
@@ -1210,7 +1150,6 @@ SKIP	TSD	Post-condition Violation
 	BOOST: 1_85
 
 REPAIR	TSY	kept leaving atom(s) typed from the free molecule: S2
-REPAIR	TVA	full sanitisation failed (Explicit valence for atom # 16 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	TY3	full sanitisation failed (non-ring atom 0 marked aromatic); retried without kekulisation
 REPAIR	TYB	full sanitisation failed (Explicit valence for atom # 2 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	TYJ	kept leaving atom(s) typed from the free molecule: OG1
@@ -1257,13 +1196,10 @@ REPAIR	VI6	full sanitisation failed (Explicit valence for atom # 14 B, 4, is gre
 REPAIR	VKZ	full sanitisation failed (Explicit valence for atom # 1 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	VL2	full sanitisation failed (Explicit valence for atom # 1 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	VL9	full sanitisation failed (Can't kekulize mol.  Unkekulized atoms: 15 16 19 20 21); retried without kekulisation
-REPAIR	VME	full sanitisation failed (Explicit valence for atom # 2 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	VOF	full sanitisation failed (Can't kekulize mol.  Unkekulized atoms: 3 4 14); retried without kekulisation
-REPAIR	VPF	kept leaving atom(s) typed from the free molecule: OGG
 REPAIR	VVB	removed H1 bonded to O12 (formal charge -1)
 REPAIR	VVB	removed H2 bonded to O13 (formal charge -1)
 REPAIR	VVK	kept leaving atom(s) typed from the free molecule: O
-REPAIR	VWW	kept leaving atom(s) typed from the free molecule: OXT1
 REPAIR	WCM	kept leaving atom(s) typed from the free molecule: O1
 REPAIR	WHK	full sanitisation failed (Explicit valence for atom # 7 B, 4, is greater than permitted); retried without kekulisation
 REPAIR	WJS	full sanitisation failed (Explicit valence for atom # 0 P, 6, is greater than permitted); retried without kekulisation
@@ -1291,7 +1227,6 @@ REPAIR	X5V	kept leaving atom(s) typed from the free molecule: O8
 REPAIR	X5W	full sanitisation failed (Explicit valence for atom # 34 B, 4, is greater than permitted); retried without kekulisation
 REPAIR	XAX	removed HO2 bonded to O2 (formal charge -1)
 REPAIR	XC3	full sanitisation failed (Explicit valence for atom # 17 B, 4, is greater than permitted); retried without kekulisation
-REPAIR	XPH	kept leaving atom(s) typed from the free molecule: O1
 REPAIR	XTX	full sanitisation failed (Explicit valence for atom # 3 O, 3, is greater than permitted); retried without kekulisation
 REPAIR	XZ6	full sanitisation failed (Can't kekulize mol.  Unkekulized atoms: 8 9 10); retried without kekulisation
 REPAIR	Y59	full sanitisation failed (Can't kekulize mol.  Unkekulized atoms: 10 11 12 13 15); retried without kekulisation
@@ -1348,7 +1283,6 @@ REPAIR	ZN9	removed H7 bonded to C3 (formal charge -1)
 REPAIR	ZN9	removed H8 bonded to C3 (formal charge -1)
 REPAIR	ZN9	removed H9 bonded to C3 (formal charge -1)
 REPAIR	ZQN	full sanitisation failed (Explicit valence for atom # 4 N, 4, is greater than permitted); retried without kekulisation
-REPAIR	ZRA	kept leaving atom(s) typed from the free molecule: F1
 REPAIR	ZRJ	full sanitisation failed (Explicit valence for atom # 12 C, 5, is greater than permitted); retried without kekulisation
 REPAIR	ZRW	full sanitisation failed (Explicit valence for atom # 61 P, 6, is greater than permitted); retried without kekulisation
 REPAIR	ZV2	full sanitisation failed (Can't kekulize mol.  Unkekulized atoms: 8 10 11); retried without kekulisation
@@ -1362,5 +1296,4 @@ REPAIR	ZXF	removed H11 bonded to S (formal charge -1)
 REPAIR	ZXF	removed H12 bonded to O1 (formal charge -1)
 REPAIR	ZXK	full sanitisation failed (Explicit valence for atom # 1 C, 4, is greater than permitted); retried without kekulisation
 REPAIR	ZXO	full sanitisation failed (Explicit valence for atom # 1 C, 4, is greater than permitted); retried without kekulisation
-REPAIR	ZYA	kept leaving atom(s) typed from the free molecule: F1
 REPAIR	ZZU	full sanitisation failed (Explicit valence for atom # 1 C, 5, is greater than permitted); retried without kekulisation

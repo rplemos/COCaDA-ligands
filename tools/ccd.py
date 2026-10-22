@@ -195,8 +195,19 @@ class Component:
         form is the one that is actually met. A sugar oxygen that IS linked to
         the next residue is typed as the free hydroxyl it would otherwise be,
         donor included; covalent links are not suppressed yet in any case.
+
+        "Peptide-like" components are excluded (2026-10-22). They are whole
+        molecules built from amino-acid-like pieces - glutathione, statine,
+        peptidomimetic inhibitors - found free in a pocket, not residues of a
+        chain, and the substring test had been capping them: glutathione's thiol
+        lost its donor (HSG is flagged leaving), and terminal carboxylates of
+        inhibitors such as 005 lost their charge and their OXT. Terminus types
+        ("NH3 amino terminus", "COOH carboxy terminus") still match: they are
+        bonded on one side only, so neither form is exact for them; left as a
+        documented minor case (43 components, 261 archive entries).
         """
-        return "PEPTIDE" in self.type.upper()
+        kind = self.type.upper()
+        return "PEPTIDE" in kind and "PEPTIDE-LIKE" not in kind
 
     def heavy_atom_names(self, drop_leaving=False):
         return [a["atom_id"] for a in self.atoms
