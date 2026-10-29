@@ -41,14 +41,18 @@ def cl_parse():
                             '-r X-Y = range of residues from X to Y. -r X,Y,Z... = specific multiple residues.')
         parser.add_argument('-i', '--interface', required=False, nargs='?', const='interface.csv', help=SUPPRESS)
         parser.add_argument('-d', '--distances', nargs='+', required=False,  default='contact_distances.json', 
-                            help='Processes custom contact distances from a .json file. Default: "contact_distances.json". Users can also input 14 comma-separated float values ' \
-                            'representing min and max distances for each of the 7 contact types in the following order: ' \
+                            help='Processes custom contact distances from a .json file. Default: "contact_distances.json". Users can also input 16 comma-separated float values ' \
+                            'representing min and max distances for each of the 8 contact types in the following order: ' \
                             'salt_bridge_min,salt_bridge_max,hydrophobic_min,hydrophobic_max,hydrogen_bond_min,hydrogen_bond_max,repulsive_min,repulsive_max,' \
-                            'attractive_min,attractive_max,disulfide_bond_min,disulfide_bond_max,aromatic_min,aromatic_max')
+                            'attractive_min,attractive_max,disulfide_bond_min,disulfide_bond_max,aromatic_min,aromatic_max,metal_coordination_min,metal_coordination_max ' \
+                            '(the 14 values of COCaDA v1.6 are also accepted, leaving metal coordination at its default)')
         parser.add_argument('-ph', '--ph', type=validate_ph, default=None, help='Define pH value to be used. Only electrostatic contacts are affected. By default, uses pH value of 7.4. Values between 0 and 14 are accepted.')
         parser.add_argument('-c', '--chains', required=False, nargs='?', help='Define only specific chains to be analyzed. -c A = only one chain. -c A,B,C... = specific multiple chains.')
         parser.add_argument('-s', '--silent', required=False, action='store_true', help='Suppresses non-essential console output.')
         parser.add_argument('-inter', '--interchain', required=False, action='store_true', help='Calculates only interchain contacts.')
+        scope = parser.add_mutually_exclusive_group()
+        scope.add_argument('-comp', '--components-only', required=False, action='store_true', help='Calculates only contacts that involve at least one component (ligand, cofactor, ion, metal-coordinating water), leaving out those between two amino acids.')
+        scope.add_argument('-aa', '--amino-acids-only', required=False, action='store_true', help='Calculates only contacts between two amino acids, as COCaDA v1.6 does.')
         parser.add_argument('-alt', '--all-altlocs', required=False, action='store_true', help='Report the contacts of every alternate conformation, not only the highest-occupancy one; atoms are paired within one conformer, and two columns (Alt1, Alt2) are added at the end of the CSV.')
         parser.add_argument('-pl', '--plddt', type=validate_plddt, default=None, help='For predicted models: consider only amino-acid residues whose pLDDT, read from the B-factor column (as AlphaFold and other predictors write it), is at least this value (0-100). Components are never removed. Meaningless for experimental structures, whose B-factor column holds B-factors.')
         parser.add_argument('-w', '--web', required=False, default=0, help=SUPPRESS) #'Sets outputs to web format. Requires the use of -o flag.'
@@ -63,6 +67,8 @@ def cl_parse():
         web = args.web
         all_altlocs = args.all_altlocs
         min_plddt = args.plddt
+        pair_scope = ('components' if args.components_only
+                      else 'amino' if args.amino_acids_only else None)
                 
         ncores = cpu_count()
         multi = args.cores
@@ -117,7 +123,7 @@ def cl_parse():
         #traceback.print_exc() 
         exit(1)
         
-    return files, core, output, region, chains, interface, distances, modified_distances, ph, silent, interchain, web, all_altlocs, min_plddt
+    return files, core, output, region, chains, interface, distances, modified_distances, ph, silent, interchain, web, all_altlocs, min_plddt, pair_scope
         
         
 def validate_file(value):

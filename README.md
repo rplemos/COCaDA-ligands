@@ -78,7 +78,7 @@ With a user-defined pH (`-ph`), electrostatic contacts of amino acids whose prot
 
 2. Run COCαDA-ligands with the path to your folder or file:
     ```sh
-    python cocada.py -f path_to_files/*.{cif/pdb} [-m [CORES]] [-o [OUTPUT_DIR]] [-r] [-d] [-ph] [-c] [-s] [-inter] [-alt] [-pl] [-h]
+    python cocada.py -f path_to_files/*.{cif/pdb} [-m [CORES]] [-o [OUTPUT_DIR]] [-r] [-d] [-ph] [-c] [-s] [-inter] [-comp | -aa] [-alt] [-pl] [-h]
     ```
 
 ### ⚙️ Parameters
@@ -94,6 +94,8 @@ With a user-defined pH (`-ph`), electrostatic contacts of amino acids whose prot
 | `-c`, `--chains`| **(Optional)** Define only specific chains to be analyzed.<br>• `-c X` = only chain X. <br>• `-c X,Y,Z` = specific multiple chains.|
 | `-s`, `--silent`| **(Optional)** Suppresses non-essential console output. |
 | `-inter`, `--interchain`| **(Optional)** Calculates only interchain contacts. |
+| `-comp`, `--components-only`| **(Optional)** Calculates only contacts that involve at least one component (ligand, cofactor, ion, metal-coordinating water), leaving out those between two amino acids: the rows of a full run whose `AA-AA` column is `n`. Faster, since pairs of amino acids are never compared. |
+| `-aa`, `--amino-acids-only`| **(Optional)** Calculates only contacts between two amino acids, as COCαDA v1.6 does: the rows of a full run whose `AA-AA` column is `y`. Cannot be combined with `-comp`. |
 | `-alt`, `--all-altlocs`| **(Optional)** Reports the contacts of every alternate conformation instead of only the highest-occupancy one. Atoms are paired only within one conformer (altloc A with A or with atoms that have none), and two columns, `Alt1` and `Alt2`, are added at the end of each CSV row. |
 | `-pl`, `--plddt`| **(Optional)** For predicted models: considers only amino-acid residues whose pLDDT, read from the B-factor column as AlphaFold and other predictors write it, is at least the given value (0–100). A residue's pLDDT is the mean over its atoms. Components (ligands, ions) are never removed. Meaningless for experimental structures, whose B-factor column holds B-factors. |
 | `-h`, `--help` | **(Optional)** Shows help and usage instructions. |

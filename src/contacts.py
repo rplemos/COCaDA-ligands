@@ -239,6 +239,12 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
     # --all-altlocs: every alternate conformation was kept by the parser, and
     # atoms are paired only within one conformer (see parser.ALTLOCS).
     all_altlocs = getattr(context, "all_altlocs", False)
+    # -comp / -aa: which residue pairs are compared at all. A pair involves a
+    # component when either residue is hetero - the same test as the AA-AA
+    # column - so -comp gives exactly the 'n' rows of a full run and -aa the
+    # 'y' rows, while skipping the pairs the other mode would compare.
+    pair_scope = getattr(context, "pair_scope", None)
+    components_only, amino_only = pair_scope == "components", pair_scope == "amino"
 
     prot_chains = []
     for chain in protein.chains:
@@ -358,6 +364,8 @@ def contact_detection(protein, context, uncertainty_flags, local_contact_types):
                 or (region and (residue1.resnum not in region or residue2.resnum not in region))  # outside region
                 or (chains and (chain1 not in chains or chain2 not in chains))  # chains not allowed
                 or (interchain and chain1 == chain2)  # interchain required but same chain
+                or (components_only and not (residue1.is_hetero or residue2.is_hetero))  # -comp: two amino acids
+                or (amino_only and (residue1.is_hetero or residue2.is_hetero))  # -aa: a component
             ):
                 continue
 

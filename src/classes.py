@@ -21,7 +21,7 @@ class ProcessingContext:
         interface (str or None): Path to an interface residue list. Defaults to None.
     """
 
-    def __init__(self, distances, core=None, output=None, region=None, chains=None, interface=None, modified_distances=False, epsilon=0, ph=7.4, silent=False, uncertainty_flags=None, interchain=False, web=False, all_altlocs=False, min_plddt=None):
+    def __init__(self, distances, core=None, output=None, region=None, chains=None, interface=None, modified_distances=False, epsilon=0, ph=7.4, silent=False, uncertainty_flags=None, interchain=False, web=False, all_altlocs=False, min_plddt=None, pair_scope=None):
         self.core = core
         self.output = output
         self.region = region
@@ -37,6 +37,9 @@ class ProcessingContext:
         self.web = web
         self.all_altlocs = all_altlocs
         self.min_plddt = min_plddt
+        # None, 'components' (-comp: only contacts involving a component)
+        # or 'amino' (-aa: only contacts between two amino acids).
+        self.pair_scope = pair_scope
 
 class Protein:
     """
