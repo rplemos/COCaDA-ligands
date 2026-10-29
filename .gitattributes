@@ -1,0 +1,3 @@
+# The component table is generated data: keep its bytes exactly as built
+# (no line-ending conversion) and collapse its diffs on GitHub.
+src/ligand_types.dat -text linguist-generated=true

@@ -10,7 +10,7 @@ COCαDA-ligands extends [COCαDA](https://github.com/rplemos/COCaDA) (COntact se
 
 COCαDA accelerates contact detection by discarding residue pairs whose **Cα–Cα distance** exceeds an empirically mined maximum for that pair of residue types, before any atom-level distance is computed. COCαDA-ligands keeps that pruning for amino-acid pairs, and adds a second regime for any pair involving a component: a bound computed from the structure's own coordinates (the component's centroid, its radius and the largest contact distance).
 
-Atoms of components are typed from a table generated from the CCD (`src/ligand_types.dat.gz`, 51,044 components), with the same six properties COCαDA uses for amino acids: hydrophobic, aromatic, positive, negative, hydrogen-bond donor and acceptor. The generator must reproduce COCαDA's curated amino-acid table exactly before its output is accepted (see [Tools](#-tools)). Admitting components does not change amino-acid results: each structure run with and without its `HETATM` records gives the same amino-acid contacts.
+Atoms of components are typed from a table generated from the CCD (`src/ligand_types.dat`, 51,044 components), with the same six properties COCαDA uses for amino acids: hydrophobic, aromatic, positive, negative, hydrogen-bond donor and acceptor. The generator must reproduce COCαDA's curated amino-acid table exactly before its output is accepted (see [Tools](#-tools)). Admitting components does not change amino-acid results: each structure run with and without its `HETATM` records gives the same amino-acid contacts.
 
 ### 🔍 Contact types detected:
 | Code | Contact type |

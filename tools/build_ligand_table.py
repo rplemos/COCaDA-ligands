@@ -22,7 +22,7 @@ the table.
 
 WHAT IT PRODUCES
 
-    src/ligand_types.dat.gz   the table COCaDA reads (a few MB)
+    src/ligand_types.dat      the table COCaDA reads (plain text, ~12 MB)
     src/ligand_types.log      every repair and skip, for the record
 
 Commit both. The table is generated data - regenerate it rather than editing
@@ -32,7 +32,6 @@ COCaDA-ligands (v2.0)
 """
 
 import argparse
-import gzip
 import os
 import shutil
 import sys
@@ -43,7 +42,7 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
-DEFAULT_OUT = os.path.join(ROOT, "src", "ligand_types.dat.gz")
+DEFAULT_OUT = os.path.join(ROOT, "src", "ligand_types.dat")
 
 
 def existing_ids(path):
@@ -158,8 +157,8 @@ def main():
         if os.path.exists(partial):
             os.remove(partial)
         broken = []
-        with gzip.open(args.out, "rt") as gz, open(partial, "w") as raw:
-            for line in gz:
+        with open(args.out, encoding="ascii") as table, open(partial, "w") as raw:
+            for line in table:
                 comp_id, _, rest = line.partition("\t")
                 atoms_field, _, _ = rest.partition("\t")
                 entries = [e for e in atoms_field.split(",") if e]
@@ -177,8 +176,7 @@ def main():
     if args.extend and os.path.exists(args.out) and not os.path.exists(partial):
         print(f"extending {os.path.basename(args.out)}: "
               f"seeding the working file from it")
-        with gzip.open(args.out, "rb") as gz, open(partial, "wb") as raw:
-            shutil.copyfileobj(gz, raw)
+        shutil.copyfile(args.out, partial)
 
     done, size = existing_ids(partial)
     if done:
@@ -235,10 +233,9 @@ def main():
     print(f"\ntyped {total:,} components ({skipped:,} skipped) "
           f"in {(time.time() - started) / 60:.1f} min")
 
-    print(f"compressing -> {args.out}")
-    with open(partial, "rb") as raw, gzip.open(args.out, "wb", compresslevel=9) as gz:
-        shutil.copyfileobj(raw, gz)
-    os.remove(partial)
+    # Uncompressed on purpose: --extend only appends lines, so each CCD update
+    # reaches git as the added lines, not as a new copy of the whole table.
+    os.replace(partial, args.out)
 
     mb = os.path.getsize(args.out) / (1024 * 1024)
     print(f"done: {args.out} ({mb:.1f} MB)")

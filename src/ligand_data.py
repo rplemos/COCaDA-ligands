@@ -12,7 +12,7 @@ The wwPDB Chemical Component Dictionary holds ~51 000 components and
 50 MB source file that every worker process re-parses at import, which is
 unacceptable for a tool whose whole point is speed.
 
-Instead the table is a compact, gzipped, line-per-component data file, and
+Instead the table is a compact, line-per-component text file, and
 only the components actually present in the structure being processed are
 loaded - typically between one and ten. Everything else is never touched.
 
@@ -49,11 +49,12 @@ is written `C1%2C`. Only the 105 affected names change shape; everything else
 is byte-identical to before, primes included.
 """
 
-import gzip
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-DATA_FILE = os.path.join(HERE, "ligand_types.dat.gz")
+# Plain text, not gzipped: a new CCD release only appends lines, so git stores
+# each update as the added lines rather than as a new copy of the whole table.
+DATA_FILE = os.path.join(HERE, "ligand_types.dat")
 
 #: Bit i of a packed mask holds flag i of the property vector.
 FLAG_COUNT = 6
@@ -113,7 +114,7 @@ def load_for(comp_ids):
 
     if wanted and os.path.exists(DATA_FILE):
         found = set()
-        with gzip.open(DATA_FILE, "rt") as handle:
+        with open(DATA_FILE, encoding="ascii") as handle:
             for line in handle:
                 comp_id, _, rest = line.partition("\t")
                 if comp_id not in wanted:

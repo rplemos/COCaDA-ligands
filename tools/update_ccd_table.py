@@ -11,7 +11,7 @@ monomers/components.cif.gz, then gunzip). Needs RDKit, like the builder.
 
 WHAT IT DOES, in order; any failure stops it and the live table is untouched:
 
-  1. copies src/ligand_types.dat.gz to a work directory and runs
+  1. copies src/ligand_types.dat to a work directory and runs
      build_ligand_table.py --extend on the copy: only components the table does
      not have are typed, with the current generator;
   2. checks the result against the table it started from: every component
@@ -20,7 +20,7 @@ WHAT IT DOES, in order; any failure stops it and the live table is untouched:
   3. loads every new component through ligand_data, as COCaDA would at runtime;
   4. runs the generator gate (167/167), and the unit tests if tests/ is present;
   5. writes update_report.txt in the work directory;
-  6. with --install only: replaces src/ligand_types.dat.gz and appends the
+  6. with --install only: replaces src/ligand_types.dat and appends the
      build log to src/ligand_types.log. Commit both, naming the CCD release.
 
 Components whose CCD definition changed since the table was built are NOT
@@ -32,7 +32,6 @@ COCaDA-ligands (v2.0)
 """
 
 import argparse
-import gzip
 import os
 import shutil
 import subprocess
@@ -42,13 +41,13 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-TABLE = os.path.join(ROOT, "src", "ligand_types.dat.gz")
+TABLE = os.path.join(ROOT, "src", "ligand_types.dat")
 LOG = os.path.join(ROOT, "src", "ligand_types.log")
 
 
 def read_table(path):
     """{component id: its full line} - the unit the comparison works on."""
-    with gzip.open(path, "rt") as handle:
+    with open(path, encoding="ascii") as handle:
         return {line.partition("\t")[0]: line for line in handle if line.strip()}
 
 
@@ -102,7 +101,7 @@ def main():
         sys.exit(f"error: no such file: {args.ccd}")
     work = args.workdir or tempfile.mkdtemp(prefix="ccd_update_")
     os.makedirs(work, exist_ok=True)
-    candidate = os.path.join(work, "ligand_types.dat.gz")
+    candidate = os.path.join(work, "ligand_types.dat")
     candidate_log = os.path.join(work, "ligand_types.log")
     report = [f"CCD update {time.strftime('%Y-%m-%d %H:%M')}",
               f"ccd:   {os.path.abspath(args.ccd)}",

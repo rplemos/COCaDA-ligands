@@ -556,7 +556,7 @@ def generate_components(names, factory=None):
 
 
 def write_dat(table, rings, path):
-    """Emit the compact, gzipped, line-per-component data file.
+    """Emit the compact, line-per-component text data file.
 
     A Python dict literal is not an option at CCD scale: 51 000 components and
     1.33 million heavy atoms would be a ~50 MB source file re-parsed by every
@@ -566,12 +566,11 @@ def write_dat(table, rings, path):
     See that module for the format description.
     """
 
-    import gzip
     sys.path.insert(0, os.path.join(HERE, os.pardir, "src"))
     from ligand_data import pack
 
     written = 0
-    with gzip.open(path, "wt", compresslevel=9) as handle:
+    with open(path, "w", encoding="ascii", newline="\n") as handle:
         for comp_id in sorted(table):
             atoms = table[comp_id]
             if not atoms:
@@ -586,7 +585,7 @@ def write_dat(table, rings, path):
     print(f"wrote {written:,} components, "
           f"{sum(len(v) for v in table.values()):,} atom entries, "
           f"{sum(len(v) for v in rings.values()):,} ring systems "
-          f"-> {path} ({size:.1f} MB gzipped)")
+          f"-> {path} ({size:.1f} MB)")
 
 
 def write_table(table, path, rings=None):

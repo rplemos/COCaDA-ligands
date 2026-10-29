@@ -265,7 +265,7 @@ contact_types = {
 # source file re-parsed by every worker process at import, and a deepcopy of it
 # on every structure inside change_protonation().
 #
-# They live instead in a compact gzipped data file, read on demand by
+# They live instead in a compact text data file, read on demand by
 # src/ligand_data.py: contact_detection() collects the component identifiers
 # actually present in the structure - usually between one and ten - and loads
 # only those, merging them into its local copy of this table. Everything else
