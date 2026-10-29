@@ -1,2 +1,5 @@
 numpy>=2.0.1
 psutil>=6.0.0
+
+# Only to rebuild or update the component table (tools/):
+# rdkit
