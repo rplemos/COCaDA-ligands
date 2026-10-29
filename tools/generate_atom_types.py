@@ -108,7 +108,7 @@ USAGE
     python tools/generate_atom_types.py --components HEM ATP ZN
     python tools/generate_atom_types.py --components HEM --out src/ligand_types.py
 
-COCaDA v1.6+ - ligand support extension
+COCaDA-ligands (v2.0)
 """
 
 import argparse

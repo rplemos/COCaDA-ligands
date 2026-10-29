@@ -1,7 +1,7 @@
 """
-COCaDA v1.6
+COCaDA-ligands (v2.0)
 Author: Rafael Lemos - rafaellemos@ufmg.br
-Date: 26/03/2026
+Date: 29/10/2026
 
 License: MIT License
 """
@@ -1027,7 +1027,8 @@ def build_hetero_rings(residue, ring_table):
     Chemical Component Dictionary - structure files carry no connectivity, so
     ring perception is impossible at runtime. Each entry is one five- or
     six-membered ring; fused systems are deliberately NOT merged, so heme gives
-    four pyrrole planes rather than one porphyrin (F5 in docs/DECISIONS.md).
+    four pyrrole planes rather than one porphyrin, whose centroid sits too far
+    from its own edges for the stacking window.
 
     Returns a list of (centroid Atom, normal vector). Incomplete rings are
     skipped: a partially resolved ligand has no meaningful plane.

@@ -44,7 +44,7 @@ These are not hypothetical. Each was found in a real CCD entry.
   chain. Dropping them and capping the open valences reconstructs the residue
   as it actually occurs - which is what the curated amino-acid table describes.
 
-COCaDA v1.6+ - ligand support extension
+COCaDA-ligands (v2.0)
 """
 
 import os

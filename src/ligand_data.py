@@ -1,4 +1,10 @@
 """
+COCaDA-ligands (v2.0)
+Author: Rafael Lemos - rafaellemos@ufmg.br
+Date: 29/10/2026
+
+License: MIT License
+
 Lazy access to the generated non-amino-acid atom property table.
 
 The wwPDB Chemical Component Dictionary holds ~51 000 components and
@@ -41,8 +47,6 @@ So names are percent-escaped on the way out and unescaped on the way in, for
 `%` and every delimiter: comma, equals, pipe, semicolon, tab, newline. `C1,`
 is written `C1%2C`. Only the 105 affected names change shape; everything else
 is byte-identical to before, primes included.
-
-COCaDA v1.6+ - ligand support extension
 """
 
 import gzip

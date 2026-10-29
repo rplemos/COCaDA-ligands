@@ -1,7 +1,7 @@
 """
-COCaDA v1.6
+COCaDA-ligands (v2.0)
 Author: Rafael Lemos - rafaellemos@ufmg.br
-Date: 26/03/2026
+Date: 29/10/2026
 
 License: MIT License
 """

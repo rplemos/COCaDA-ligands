@@ -18,7 +18,7 @@ WHAT IT DOES, in order; any failure stops it and the live table is untouched:
      already there must come back byte for byte, so nothing that worked can
      change; new components are listed;
   3. loads every new component through ligand_data, as COCaDA would at runtime;
-  4. runs the generator gate (167/167) and the unit tests;
+  4. runs the generator gate (167/167), and the unit tests if tests/ is present;
   5. writes update_report.txt in the work directory;
   6. with --install only: replaces src/ligand_types.dat.gz and appends the
      build log to src/ligand_types.log. Commit both, naming the CCD release.
@@ -28,7 +28,7 @@ re-typed (that would change working entries); the report lists how many there
 are, from _chem_comp.pdbx_modified_date, so a deliberate re-type can be planned.
 Components dropped from the CCD stay in the table, also listed.
 
-COCaDA v1.6+ - ligand support extension
+COCaDA-ligands (v2.0)
 """
 
 import argparse
@@ -154,7 +154,11 @@ def main():
     # 4. the gate and the tests
     run([sys.executable, os.path.join(HERE, "generate_atom_types.py"), "--validate"],
         report, "the generator gate")
-    run([sys.executable, "-m", "pytest", "tests/", "-q"], report, "the unit tests")
+    tests = os.path.join(ROOT, "tests")
+    if os.path.isdir(tests):
+        run([sys.executable, "-m", "pytest", tests, "-q"], report, "the unit tests")
+    else:
+        report.append("unit tests: no tests/ in this checkout, not run")
 
     # information: definitions changed upstream, components gone from the CCD
     since = last_build_date(LOG)

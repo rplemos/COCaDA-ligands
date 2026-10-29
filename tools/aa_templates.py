@@ -17,7 +17,7 @@ IMPORTANT - bracketed SMILES atoms carry NO implicit hydrogens. Writing
 destroys every donor assignment downstream. Every bracketed atom below
 states its hydrogen count explicitly.
 
-COCaDA v1.6+ - ligand support extension
+COCaDA-ligands (v2.0)
 """
 
 # Backbone scaffold. "{R}" is replaced by the residue-specific fragment,

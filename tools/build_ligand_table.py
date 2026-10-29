@@ -28,7 +28,7 @@ WHAT IT PRODUCES
 Commit both. The table is generated data - regenerate it rather than editing
 it by hand, or the provenance the validation gate depends on is broken.
 
-COCaDA v1.6+ - ligand support extension
+COCaDA-ligands (v2.0)
 """
 
 import argparse

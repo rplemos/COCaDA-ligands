@@ -1,7 +1,7 @@
 """
-COCaDA v1.6
+COCaDA-ligands (v2.0)
 Author: Rafael Lemos - rafaellemos@ufmg.br
-Date: 26/03/2026
+Date: 29/10/2026
 
 License: MIT License
 """
@@ -172,8 +172,8 @@ class Residue:
         # exactly one, which keeps its behaviour identical to before. Hetero
         # components can have several, one per five- or six-membered ring - NAD
         # has three, and heme four pyrroles, because the centroid of a fused
-        # system sits too far from its own edges for the stacking window (F5
-        # in docs/DECISIONS.md). Populated by contacts.set_anchors().
+        # system sits too far from its own edges for the stacking window.
+        # Populated by contacts.set_anchors().
         self.rings = []
 
         # Pruning anchor. Standard residues use their alpha carbon and the
